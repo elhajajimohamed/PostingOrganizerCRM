@@ -63,15 +63,16 @@ export function FinancialAnalyticsDashboard({ callCenters, loading }: FinancialA
 
   // Filter clients based on current filters
   const filteredClients = useMemo(() => {
+    if (!financialData) return [];
     return financialData.clients.filter(client => {
       const matchesCountry = countryFilter === 'all' || client.country === countryFilter;
       const matchesPaymentMethod = paymentMethodFilter === 'all' || client.paymentMethod === paymentMethodFilter;
       const matchesSearch = client.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           client.notes?.toLowerCase().includes(searchTerm.toLowerCase());
+                            client.notes?.toLowerCase().includes(searchTerm.toLowerCase());
 
       return matchesCountry && matchesPaymentMethod && matchesSearch;
     });
-  }, [financialData.clients, countryFilter, paymentMethodFilter, searchTerm]);
+  }, [financialData, countryFilter, paymentMethodFilter, searchTerm]);
 
   const getCommissionRateText = (rate: number) => {
     return `${(rate * 100).toFixed(0)}%`;
