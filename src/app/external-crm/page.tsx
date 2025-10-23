@@ -324,8 +324,8 @@ export default function ExternalCRMPage() {
         }
       }
 
-      // Reload tasks to get the updated list
-      await loadDailyTasks();
+      // Reload tasks to get the updated list (with a small delay to ensure calendar event is created)
+      setTimeout(() => loadDailyTasks(), 500);
 
       setNewTaskTitle('');
       setNewTaskDescription('');
