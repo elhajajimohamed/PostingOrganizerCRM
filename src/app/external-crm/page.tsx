@@ -85,6 +85,9 @@ export default function ExternalCRMPage() {
   const [newTaskTime, setNewTaskTime] = useState('');
   const [newTaskCallCenter, setNewTaskCallCenter] = useState('');
 
+  // Calendar refresh state
+  const [calendarRefreshTrigger, setCalendarRefreshTrigger] = useState(0);
+
   useEffect(() => {
     console.log('🚀 Initializing External CRM Page...');
     console.log('👤 Current user:', user);
@@ -301,6 +304,8 @@ export default function ExternalCRMPage() {
 
           if (response.ok) {
             console.log('✅ Calendar event created successfully');
+            // Trigger calendar refresh
+            setCalendarRefreshTrigger(prev => prev + 1);
           } else {
             console.error('❌ Failed to create calendar event');
           }
@@ -377,9 +382,13 @@ export default function ExternalCRMPage() {
         const calendarTask = dailyTasks.find(t => t.id === `calendar-${taskId}`);
         if (calendarTask && calendarTask.calendarEvent) {
           await updateCalendarEventStatus(calendarTask.calendarEvent.id, newStatus);
+          // Trigger calendar refresh
+          setCalendarRefreshTrigger(prev => prev + 1);
         }
       } else if (task.source === 'calendar' && task.calendarEvent) {
         await updateCalendarEventStatus(task.calendarEvent.id, newStatus);
+        // Trigger calendar refresh
+        setCalendarRefreshTrigger(prev => prev + 1);
       }
 
       // Reload tasks in background to ensure consistency
@@ -474,6 +483,8 @@ export default function ExternalCRMPage() {
 
           if (response.ok) {
             console.log('✅ Calendar event deleted:', calendarTask.calendarEvent.id);
+            // Trigger calendar refresh
+            setCalendarRefreshTrigger(prev => prev + 1);
           }
         }
       } else if (task.source === 'calendar' && task.calendarEvent) {
@@ -484,6 +495,8 @@ export default function ExternalCRMPage() {
 
         if (response.ok) {
           console.log('✅ Calendar event deleted:', task.calendarEvent.id);
+          // Trigger calendar refresh
+          setCalendarRefreshTrigger(prev => prev + 1);
         }
       }
 
@@ -585,6 +598,8 @@ export default function ExternalCRMPage() {
 
             if (response.ok) {
               console.log('✅ Calendar event created/updated successfully');
+              // Trigger calendar refresh
+              setCalendarRefreshTrigger(prev => prev + 1);
             } else {
               console.error('❌ Failed to create calendar event');
             }
@@ -610,6 +625,8 @@ export default function ExternalCRMPage() {
 
         if (response.ok) {
           console.log('✅ Calendar event updated:', editingTask.calendarEvent.id);
+          // Trigger calendar refresh
+          setCalendarRefreshTrigger(prev => prev + 1);
         }
       }
 
@@ -1004,7 +1021,7 @@ export default function ExternalCRMPage() {
         return <FinancialAnalyticsDashboard callCenters={callCenters} loading={loading} />;
 
       case 'calendar':
-        return <CalendarDashboard />;
+        return <CalendarDashboard refreshTrigger={calendarRefreshTrigger} />;
 
       case 'tasks':
         return (

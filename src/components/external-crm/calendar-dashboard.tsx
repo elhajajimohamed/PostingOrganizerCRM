@@ -27,7 +27,11 @@ interface CalendarEvent {
   completedAt?: string;
 }
 
-export function CalendarDashboard() {
+interface CalendarDashboardProps {
+  refreshTrigger?: number;
+}
+
+export function CalendarDashboard({ refreshTrigger }: CalendarDashboardProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -49,7 +53,7 @@ export function CalendarDashboard() {
 
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [refreshTrigger]);
 
   const loadEvents = async () => {
     try {
