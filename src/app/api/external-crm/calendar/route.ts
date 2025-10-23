@@ -19,6 +19,7 @@ interface CalendarEvent {
   completedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  firebaseTaskId?: string;
 }
 
 // GET /api/external-crm/calendar - Get all calendar events
@@ -48,6 +49,7 @@ export async function GET() {
         completedAt: data.completedAt || null,
         createdAt: data.createdAt || '',
         updatedAt: data.updatedAt || '',
+        firebaseTaskId: data.firebaseTaskId || '',
       } as CalendarEvent);
     });
 
@@ -65,7 +67,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, description, date, time, location, type, callCenterId, callCenterName, relatedType, relatedId, color } = body;
+    const { title, description, date, time, location, type, callCenterId, callCenterName, relatedType, relatedId, color, firebaseTaskId } = body;
 
     if (!title || !date) {
       return NextResponse.json(
@@ -86,6 +88,7 @@ export async function POST(request: NextRequest) {
       callCenterName: callCenterName || '',
       ...(relatedType && { relatedType }),
       ...(relatedId && { relatedId }),
+      ...(firebaseTaskId && { firebaseTaskId }),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };

@@ -25,6 +25,7 @@ interface CalendarEvent {
   relatedId?: string;
   status?: 'completed' | 'pending';
   completedAt?: string;
+  firebaseTaskId?: string;
 }
 
 interface CalendarDashboardProps {

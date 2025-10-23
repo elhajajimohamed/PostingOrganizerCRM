@@ -44,6 +44,7 @@ interface CalendarEvent {
   relatedId?: string;
   status?: 'completed' | 'pending';
   completedAt?: string;
+  firebaseTaskId?: string;
 }
 
 interface DailyTask {
@@ -177,7 +178,8 @@ export default function ExternalCRMPage() {
         calendarEvent: {
           ...event,
           status: event.status || 'pending', // Ensure status is set
-          completedAt: event.completedAt || null
+          completedAt: event.completedAt || null,
+          firebaseTaskId: event.firebaseTaskId // Include the link to Firebase task
         }, // Keep reference to original event with status
       }));
 
@@ -294,6 +296,7 @@ export default function ExternalCRMPage() {
             type: 'task',
             callCenterId: newTaskCallCenter || '',
             status: 'pending',
+            firebaseTaskId: taskId, // Link calendar event to Firebase task
           };
 
           const response = await fetch('/api/external-crm/calendar', {
@@ -378,10 +381,12 @@ export default function ExternalCRMPage() {
           await TaskService.updateTask(taskId, { status: 'pending' });
         }
 
-        // Also update calendar event if it exists
-        const calendarTask = dailyTasks.find(t => t.id === `calendar-${taskId}`);
-        if (calendarTask && calendarTask.calendarEvent) {
-          await updateCalendarEventStatus(calendarTask.calendarEvent.id, newStatus);
+        // Also update linked calendar event if it exists
+        const linkedCalendarEvent = dailyTasks.find(t =>
+          t.source === 'calendar' && t.calendarEvent?.firebaseTaskId === taskId
+        );
+        if (linkedCalendarEvent && linkedCalendarEvent.calendarEvent) {
+          await updateCalendarEventStatus(linkedCalendarEvent.calendarEvent.id, newStatus);
           // Trigger calendar refresh
           setCalendarRefreshTrigger(prev => prev + 1);
         }
@@ -474,15 +479,17 @@ export default function ExternalCRMPage() {
       if (task.source === 'firebase') {
         await TaskService.deleteTask(taskId);
 
-        // Also delete corresponding calendar event if it exists
-        const calendarTask = dailyTasks.find(t => t.id === `calendar-${taskId}`);
-        if (calendarTask && calendarTask.calendarEvent) {
-          const response = await fetch(`/api/external-crm/calendar/${calendarTask.calendarEvent.id}`, {
+        // Also delete linked calendar event if it exists
+        const linkedCalendarEvent = dailyTasks.find(t =>
+          t.source === 'calendar' && t.calendarEvent?.firebaseTaskId === taskId
+        );
+        if (linkedCalendarEvent && linkedCalendarEvent.calendarEvent) {
+          const response = await fetch(`/api/external-crm/calendar/${linkedCalendarEvent.calendarEvent.id}`, {
             method: 'DELETE',
           });
 
           if (response.ok) {
-            console.log('✅ Calendar event deleted:', calendarTask.calendarEvent.id);
+            console.log('✅ Calendar event deleted:', linkedCalendarEvent.calendarEvent.id);
             // Trigger calendar refresh
             setCalendarRefreshTrigger(prev => prev + 1);
           }
@@ -588,6 +595,7 @@ export default function ExternalCRMPage() {
               type: 'task',
               callCenterId: newTaskCallCenter || '',
               status: 'pending',
+              firebaseTaskId: editingTask.id, // Link calendar event to Firebase task
             };
 
             const response = await fetch('/api/external-crm/calendar', {
