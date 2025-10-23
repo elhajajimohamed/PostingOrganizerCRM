@@ -27,6 +27,7 @@ import { TasksList } from '@/components/tasks/tasks-list';
 import { CallCenter, Suggestion } from '@/lib/types/external-crm';
 import { useAuth } from '@/lib/auth-context';
 import { TaskService } from '@/lib/services/task-service';
+import { useRouter } from 'next/navigation';
 
 interface CalendarEvent {
   id: string;
@@ -59,7 +60,8 @@ interface DailyTask {
 }
 
 export default function ExternalCRMPage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [callCenters, setCallCenters] = useState<CallCenter[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -98,6 +100,15 @@ export default function ExternalCRMPage() {
       console.log('❌ No authenticated user, skipping daily tasks load');
     }
   }, [user?.uid]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      router.push('/');
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
+  };
 
   // Daily tasks functions
   const loadDailyTasks = async () => {
@@ -341,18 +352,21 @@ export default function ExternalCRMPage() {
     } catch (error) {
       console.error('❌ Error toggling task completion:', error);
       // Revert optimistic update on error
-      setDailyTasks(prevTasks =>
-        prevTasks.map(t =>
-          t.id === taskId
-            ? {
-                ...t,
-                completed: task.completed,
-                completedAt: task.completedAt,
-                calendarEvent: task.calendarEvent
-              }
-            : t
-        )
-      );
+      const originalTask = dailyTasks.find(t => t.id === taskId);
+      if (originalTask) {
+        setDailyTasks(prevTasks =>
+          prevTasks.map(t =>
+            t.id === taskId
+              ? {
+                  ...t,
+                  completed: originalTask.completed,
+                  completedAt: originalTask.completedAt,
+                  calendarEvent: originalTask.calendarEvent
+                }
+              : t
+          )
+        );
+      }
     }
   };
 
@@ -1227,6 +1241,12 @@ export default function ExternalCRMPage() {
               <h1 className="text-2xl font-bold text-gray-900">Call Center CRM</h1>
               <p className="text-sm text-gray-600">Manage your call center operations</p>
             </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-600">Welcome, {user?.displayName || user?.email}</span>
+            <Button variant="outline" onClick={handleLogout}>
+              Logout
+            </Button>
           </div>
         </div>
 
