@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ModernTabsNavigation } from '@/components/ui/modern-tabs-navigation';
 import { Building2, Plus, Circle, CheckCircle } from 'lucide-react';
 import { CallCenterForm } from '@/components/external-crm/call-center-form';
@@ -84,6 +85,8 @@ export default function ExternalCRMPage() {
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [newTaskDate, setNewTaskDate] = useState('');
   const [newTaskTime, setNewTaskTime] = useState('');
+  const [newTaskLocation, setNewTaskLocation] = useState('');
+  const [newTaskType, setNewTaskType] = useState<CalendarEvent['type']>('task');
   const [newTaskCallCenter, setNewTaskCallCenter] = useState('');
 
   // Calendar refresh state
@@ -226,7 +229,7 @@ export default function ExternalCRMPage() {
 
   const handleTaskSubmit = async () => {
     console.log('🔄 handleTaskSubmit called');
-    console.log('📝 Form data:', { newTaskTitle, newTaskDescription, newTaskDate, newTaskTime, newTaskCallCenter, editingTask: !!editingTask, userId: user?.uid });
+    console.log('📝 Form data:', { newTaskTitle, newTaskDescription, newTaskDate, newTaskTime, newTaskLocation, newTaskType, newTaskCallCenter, editingTask: !!editingTask, userId: user?.uid });
 
     if (!newTaskTitle.trim()) {
       console.log('❌ Validation failed: no title');
@@ -293,7 +296,8 @@ export default function ExternalCRMPage() {
             description: newTaskDescription.trim() || newTaskTitle.trim(),
             date: newTaskDate,
             time: newTaskTime,
-            type: 'task',
+            location: newTaskLocation,
+            type: newTaskType,
             callCenterId: newTaskCallCenter || '',
             status: 'pending',
             firebaseTaskId: taskId, // Link calendar event to Firebase task
@@ -324,6 +328,8 @@ export default function ExternalCRMPage() {
       setNewTaskDescription('');
       setNewTaskDate('');
       setNewTaskTime('');
+      setNewTaskLocation('');
+      setNewTaskType('task');
       setNewTaskCallCenter('');
       setShowAddTask(false);
     } catch (error) {
@@ -543,7 +549,9 @@ export default function ExternalCRMPage() {
         // Set date and time for Firebase tasks
         setNewTaskDate(task.createdAt.toISOString().split('T')[0]);
         setNewTaskTime(task.createdAt.toTimeString().split(' ')[0].substring(0, 5));
-        // Set call center for Firebase tasks (placeholder for now)
+        // Set other fields for Firebase tasks
+        setNewTaskLocation('');
+        setNewTaskType('task');
         setNewTaskCallCenter('');
       }
     } else if (task.source === 'calendar' && task.calendarEvent) {
@@ -553,7 +561,9 @@ export default function ExternalCRMPage() {
       // Set date and time for calendar events
       setNewTaskDate(task.calendarEvent.date);
       setNewTaskTime(task.calendarEvent.time || '');
-      // Set call center for calendar events
+      // Set other fields for calendar events
+      setNewTaskLocation(task.calendarEvent.location || '');
+      setNewTaskType(task.calendarEvent.type);
       setNewTaskCallCenter(task.calendarEvent.callCenterId || '');
     }
     setShowAddTask(true); // Reuse the same dialog
@@ -592,7 +602,8 @@ export default function ExternalCRMPage() {
               description: newTaskDescription.trim() || newTaskTitle.trim(),
               date: newTaskDate,
               time: newTaskTime,
-              type: 'task',
+              location: newTaskLocation,
+              type: newTaskType,
               callCenterId: newTaskCallCenter || '',
               status: 'pending',
               firebaseTaskId: editingTask.id, // Link calendar event to Firebase task
@@ -646,6 +657,8 @@ export default function ExternalCRMPage() {
       setNewTaskDescription('');
       setNewTaskDate('');
       setNewTaskTime('');
+      setNewTaskLocation('');
+      setNewTaskType('task');
       setNewTaskCallCenter('');
       setEditingTask(null);
       setShowAddTask(false);
@@ -1051,6 +1064,8 @@ export default function ExternalCRMPage() {
                     setNewTaskDescription('');
                     setNewTaskDate('');
                     setNewTaskTime('');
+                    setNewTaskLocation('');
+                    setNewTaskType('task');
                     setNewTaskCallCenter('');
                   }
                 }}>
@@ -1062,6 +1077,8 @@ export default function ExternalCRMPage() {
                       const today = new Date().toISOString().split('T')[0];
                       setNewTaskDate(today);
                       setNewTaskTime('');
+                      setNewTaskLocation('');
+                      setNewTaskType('task');
                       setNewTaskCallCenter('');
                       setNewTaskTitle('');
                       setNewTaskDescription('');
@@ -1079,25 +1096,25 @@ export default function ExternalCRMPage() {
                     </DialogHeader>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium mb-2">Task Title</label>
+                        <label className="block text-sm font-medium mb-2">Title</label>
                         <Input
                           value={newTaskTitle}
                           onChange={(e) => {
                             console.log('📝 Title changed:', e.target.value);
                             setNewTaskTitle(e.target.value);
                           }}
-                          placeholder="What needs to be done?"
+                          placeholder="Event title"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-2">Description (Optional)</label>
+                        <label className="block text-sm font-medium mb-2">Description</label>
                         <Textarea
                           value={newTaskDescription}
                           onChange={(e) => {
                             console.log('📝 Description changed:', e.target.value);
                             setNewTaskDescription(e.target.value);
                           }}
-                          placeholder="Additional details..."
+                          placeholder="Event description (optional)"
                           rows={3}
                         />
                       </div>
@@ -1114,7 +1131,7 @@ export default function ExternalCRMPage() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium mb-2">Time (Optional)</label>
+                          <label className="block text-sm font-medium mb-2">Time</label>
                           <Input
                             type="time"
                             value={newTaskTime}
@@ -1124,6 +1141,33 @@ export default function ExternalCRMPage() {
                             }}
                           />
                         </div>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Location</label>
+                        <Input
+                          value={newTaskLocation}
+                          onChange={(e) => {
+                            console.log('📝 Location changed:', e.target.value);
+                            setNewTaskLocation(e.target.value);
+                          }}
+                          placeholder="Event location (optional)"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Type</label>
+                        <Select value={newTaskType} onValueChange={(value: CalendarEvent['type']) =>
+                          setNewTaskType(value)
+                        }>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="meeting">Meeting</SelectItem>
+                            <SelectItem value="call">Call</SelectItem>
+                            <SelectItem value="task">Task</SelectItem>
+                            <SelectItem value="reminder">Reminder</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium mb-2">Call Center (Optional)</label>
@@ -1145,6 +1189,8 @@ export default function ExternalCRMPage() {
                           setNewTaskDescription('');
                           setNewTaskDate('');
                           setNewTaskTime('');
+                          setNewTaskLocation('');
+                          setNewTaskType('task');
                           setNewTaskCallCenter('');
                         }}>
                           Cancel
