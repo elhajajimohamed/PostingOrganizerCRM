@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,8 @@ import { Progress } from '@/components/ui/progress';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CallCenter } from '@/lib/types/external-crm';
-import { FinancialAnalyticsService, ClientConsumption, ClientTopup } from '@/lib/services/financial-analytics-service';
+import { FinancialAnalyticsService, ClientConsumption, ClientTopup, FinancialReport } from '@/lib/services/financial-analytics-service';
+import { ClientTopUpsManagement } from './client-top-ups-management';
 import {
   TrendingUp,
   Users,
@@ -42,8 +43,22 @@ export function FinancialAnalyticsDashboard({ callCenters, loading }: FinancialA
   const [dateRange, setDateRange] = useState('current-month');
 
   // Calculate financial metrics
-  const financialData = useMemo(() => {
-    return FinancialAnalyticsService.generateFinancialReport(callCenters);
+  const [financialData, setFinancialData] = useState<FinancialReport | null>(null);
+  const [loadingFinancial, setLoadingFinancial] = useState(true);
+
+  useEffect(() => {
+    const loadFinancialData = async () => {
+      setLoadingFinancial(true);
+      try {
+        const data = await FinancialAnalyticsService.generateFinancialReport(callCenters);
+        setFinancialData(data);
+      } catch (error) {
+        console.error('Error loading financial data:', error);
+      } finally {
+        setLoadingFinancial(false);
+      }
+    };
+    loadFinancialData();
   }, [callCenters]);
 
   // Filter clients based on current filters
@@ -69,7 +84,7 @@ export function FinancialAnalyticsDashboard({ callCenters, loading }: FinancialA
     return 'bg-red-500';
   };
 
-  if (loading) {
+  if (loading || loadingFinancial || !financialData) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse space-y-4">
@@ -111,9 +126,10 @@ export function FinancialAnalyticsDashboard({ callCenters, loading }: FinancialA
       </div>
 
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="clients">Client Tracking</TabsTrigger>
+          <TabsTrigger value="topups">Top-ups</TabsTrigger>
           <TabsTrigger value="insights">Country Insights</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
@@ -416,6 +432,11 @@ export function FinancialAnalyticsDashboard({ callCenters, loading }: FinancialA
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Top-ups Management */}
+        <TabsContent value="topups" className="space-y-6">
+          <ClientTopUpsManagement callCenters={callCenters} />
         </TabsContent>
 
         {/* Country Insights */}

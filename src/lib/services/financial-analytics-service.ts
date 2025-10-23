@@ -4,6 +4,7 @@ export interface ClientTopup {
   id: string;
   clientId: string;
   clientName: string;
+  callCenterName: string;
   amountEUR: number;
   paymentMethod: 'Bank Transfer' | 'Interface Payment' | 'Payment Link' | 'Wafacash' | 'Cashplus' | 'Cash' | 'Crypto';
   date: string;
@@ -147,6 +148,44 @@ export class FinancialAnalyticsService {
     return clients.sort((a, b) => b.totalConsumptionEUR - a.totalConsumptionEUR);
   }
 
+  private static generateMockTopupData(): ClientTopup[] {
+    return [
+      {
+        id: '1',
+        clientId: '1',
+        clientName: 'TechCorp Morocco',
+        callCenterName: 'Call Center A',
+        amountEUR: 500,
+        paymentMethod: 'Bank Transfer',
+        date: '2024-01-15',
+        country: 'Morocco',
+        notes: 'Monthly top-up'
+      },
+      {
+        id: '2',
+        clientId: '2',
+        clientName: 'DataFlow Senegal',
+        callCenterName: 'Call Center B',
+        amountEUR: 300,
+        paymentMethod: 'Payment Link',
+        date: '2024-01-10',
+        country: 'Senegal',
+        notes: 'Initial payment'
+      },
+      {
+        id: '3',
+        clientId: '3',
+        clientName: 'CloudTech Tunisia',
+        callCenterName: 'Call Center C',
+        amountEUR: 800,
+        paymentMethod: 'Wafacash',
+        date: '2024-01-12',
+        country: 'Tunisia',
+        notes: 'Large top-up'
+      }
+    ];
+  }
+
   private static generateCountryInsights(clients: ClientConsumption[]): FinancialReport['countryInsights'] {
     const countryTotals = clients.reduce((acc, client) => {
       acc[client.country] = (acc[client.country] || 0) + client.totalConsumptionEUR;
@@ -185,37 +224,130 @@ export class FinancialAnalyticsService {
     };
   }
 
-  static generateFinancialReport(callCenters: CallCenter[]): FinancialReport {
-    // For now, using mock data since we don't have the Firebase structure yet
-    // In production, this would fetch from Firebase collections
-    const clients = this.generateMockClientData();
-    const currentTurnover = clients.reduce((sum, client) => sum + client.totalTopupEUR, 0);
-    const commissionRate = this.getCommissionRate(currentTurnover);
-    const commissionAmount = this.calculateCommission(currentTurnover);
+  static async generateFinancialReport(callCenters: CallCenter[]): Promise<FinancialReport> {
+    try {
+      // Fetch real top-up data from Firebase
+      const response = await fetch('/api/external-crm/top-ups');
+      const result = await response.json();
 
-    const totalConsumption = clients.reduce((sum, client) => sum + client.totalConsumptionEUR, 0);
-    const activeClientsCount = clients.length;
-    const averageTopupPerClient = activeClientsCount > 0 ? currentTurnover / activeClientsCount : 0;
+      if (result.success && result.data.length > 0) {
+        // Use real data
+        const topups = result.data as ClientTopup[];
 
-    return {
-      overview: {
-        monthlyTarget: this.MONTHLY_TARGET,
-        currentTurnover,
-        commissionRate,
-        commissionAmount,
-        progressPercentage: Math.min((currentTurnover / this.MONTHLY_TARGET) * 100, 100)
-      },
-      clients,
-      countryInsights: this.generateCountryInsights(clients),
-      performance: {
-        totalConsumption,
-        estimatedMargin: commissionAmount,
-        averageTopupPerClient,
-        activeClientsCount
-      },
-      alerts: this.generateAlerts(clients),
-      rankings: this.getRankings(clients)
-    };
+        // Aggregate data by client
+        const clientMap = new Map<string, ClientConsumption>();
+
+        topups.forEach(topup => {
+          const existing = clientMap.get(topup.clientId);
+          if (existing) {
+            existing.totalTopupEUR += topup.amountEUR;
+            existing.totalConsumptionEUR += topup.amountEUR; // Assuming top-up equals consumption for now
+            existing.lastTopupDate = topup.date > existing.lastTopupDate ? topup.date : existing.lastTopupDate;
+          } else {
+            clientMap.set(topup.clientId, {
+              clientId: topup.clientId,
+              clientName: topup.clientName,
+              totalConsumptionEUR: topup.amountEUR,
+              totalTopupEUR: topup.amountEUR,
+              paymentMethod: topup.paymentMethod,
+              lastTopupDate: topup.date,
+              country: topup.country,
+              notes: topup.notes
+            });
+          }
+        });
+
+        const clients = Array.from(clientMap.values());
+        const currentTurnover = clients.reduce((sum, client) => sum + client.totalTopupEUR, 0);
+        const commissionRate = this.getCommissionRate(currentTurnover);
+        const commissionAmount = this.calculateCommission(currentTurnover);
+
+        const totalConsumption = clients.reduce((sum, client) => sum + client.totalConsumptionEUR, 0);
+        const activeClientsCount = clients.length;
+        const averageTopupPerClient = activeClientsCount > 0 ? currentTurnover / activeClientsCount : 0;
+
+        return {
+          overview: {
+            monthlyTarget: this.MONTHLY_TARGET,
+            currentTurnover,
+            commissionRate,
+            commissionAmount,
+            progressPercentage: Math.min((currentTurnover / this.MONTHLY_TARGET) * 100, 100)
+          },
+          clients,
+          countryInsights: this.generateCountryInsights(clients),
+          performance: {
+            totalConsumption,
+            estimatedMargin: commissionAmount,
+            averageTopupPerClient,
+            activeClientsCount
+          },
+          alerts: this.generateAlerts(clients),
+          rankings: this.getRankings(clients)
+        };
+      } else {
+        // Fall back to mock data if no real data exists
+        const clients = this.generateMockClientData();
+        const currentTurnover = clients.reduce((sum, client) => sum + client.totalTopupEUR, 0);
+        const commissionRate = this.getCommissionRate(currentTurnover);
+        const commissionAmount = this.calculateCommission(currentTurnover);
+
+        const totalConsumption = clients.reduce((sum, client) => sum + client.totalConsumptionEUR, 0);
+        const activeClientsCount = clients.length;
+        const averageTopupPerClient = activeClientsCount > 0 ? currentTurnover / activeClientsCount : 0;
+
+        return {
+          overview: {
+            monthlyTarget: this.MONTHLY_TARGET,
+            currentTurnover,
+            commissionRate,
+            commissionAmount,
+            progressPercentage: Math.min((currentTurnover / this.MONTHLY_TARGET) * 100, 100)
+          },
+          clients,
+          countryInsights: this.generateCountryInsights(clients),
+          performance: {
+            totalConsumption,
+            estimatedMargin: commissionAmount,
+            averageTopupPerClient,
+            activeClientsCount
+          },
+          alerts: this.generateAlerts(clients),
+          rankings: this.getRankings(clients)
+        };
+      }
+    } catch (error) {
+      console.error('Error fetching financial data:', error);
+      // Fall back to mock data on error
+      const clients = this.generateMockClientData();
+      const currentTurnover = clients.reduce((sum, client) => sum + client.totalTopupEUR, 0);
+      const commissionRate = this.getCommissionRate(currentTurnover);
+      const commissionAmount = this.calculateCommission(currentTurnover);
+
+      const totalConsumption = clients.reduce((sum, client) => sum + client.totalConsumptionEUR, 0);
+      const activeClientsCount = clients.length;
+      const averageTopupPerClient = activeClientsCount > 0 ? currentTurnover / activeClientsCount : 0;
+
+      return {
+        overview: {
+          monthlyTarget: this.MONTHLY_TARGET,
+          currentTurnover,
+          commissionRate,
+          commissionAmount,
+          progressPercentage: Math.min((currentTurnover / this.MONTHLY_TARGET) * 100, 100)
+        },
+        clients,
+        countryInsights: this.generateCountryInsights(clients),
+        performance: {
+          totalConsumption,
+          estimatedMargin: commissionAmount,
+          averageTopupPerClient,
+          activeClientsCount
+        },
+        alerts: this.generateAlerts(clients),
+        rankings: this.getRankings(clients)
+      };
+    }
   }
 
   static convertCurrency(amount: number, fromCurrency: string, toCurrency: string): number {
