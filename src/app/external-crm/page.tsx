@@ -90,16 +90,16 @@ export default function ExternalCRMPage() {
     console.log('👤 Current user:', user);
     console.log('🔐 User authenticated:', !!user?.uid);
 
+    if (!user?.uid) {
+      console.log('❌ No authenticated user, redirecting to login');
+      router.push('/');
+      return;
+    }
+
     loadCallCenters(true);
     loadSuggestions();
-
-    if (user?.uid) {
-      console.log('✅ User authenticated, loading daily tasks...');
-      loadDailyTasks();
-    } else {
-      console.log('❌ No authenticated user, skipping daily tasks load');
-    }
-  }, [user?.uid]);
+    loadDailyTasks();
+  }, [user?.uid, router]);
 
   const handleLogout = async () => {
     try {
