@@ -51,9 +51,30 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
   const [allSteps, setAllSteps] = useState<Array<Step & { callCenterId: string; callCenterName?: string }>>([]);
   const [allContacts, setAllContacts] = useState<Array<Contact & { callCenterId: string; callCenterName?: string }>>([]);
   const [loadingCrossSection, setLoadingCrossSection] = useState(false);
+  const [realStats, setRealStats] = useState<any>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
-  // Load cross-section data (steps and contacts from all call centers)
+  // Load real dashboard statistics and cross-section data
   useEffect(() => {
+    const loadDashboardData = async () => {
+      setLoadingStats(true);
+      try {
+        // Load real statistics from Firebase
+        const statsResponse = await fetch('/api/external-crm/dashboard');
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setRealStats(statsData);
+          console.log('📊 Real dashboard statistics loaded:', statsData);
+        } else {
+          console.error('Failed to load dashboard statistics');
+        }
+      } catch (error) {
+        console.error('Error loading dashboard statistics:', error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
     const loadCrossSectionData = async () => {
       if (callCenters.length === 0) return;
 
@@ -79,16 +100,29 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
       }
     };
 
+    loadDashboardData();
     loadCrossSectionData();
   }, [callCenters]);
 
-  // Calculate statistics
+  // Use real statistics from Firebase if available, otherwise fall back to calculated stats
   const stats = useMemo(() => {
-    // Use totalCount if provided, otherwise fall back to loaded call centers length
-    const total = totalCount > 0 ? totalCount : callCenters.length;
+    if (realStats) {
+      return {
+        total: realStats.totalCallCenters,
+        active: realStats.activeCallCenters,
+        newThisMonth: realStats.newThisMonth,
+        totalValue: realStats.totalValue,
+        wonValue: realStats.wonValue,
+        avgPositions: realStats.avgPositions,
+        statusCounts: realStats.statusCounts,
+        countryCounts: realStats.countryCounts,
+        conversionRate: realStats.conversionRate,
+        isPartialData: false
+      };
+    }
 
-    // For detailed stats, we need to use the loaded call centers data
-    // But we'll show them proportionally or note the limitation
+    // Fallback to calculated stats if real stats not available
+    const total = totalCount > 0 ? totalCount : callCenters.length;
     const loadedActive = callCenters.filter(cc => !['Closed-Won', 'Closed-Lost', 'On-Hold'].includes(cc.status)).length;
     const loadedNewThisMonth = callCenters.filter(cc => {
       const createdDate = new Date(cc.createdAt);
@@ -101,19 +135,16 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
     const loadedWonValue = callCenters.filter(cc => cc.status === 'Closed-Won').reduce((sum, cc) => sum + (cc.value || 0), 0);
     const loadedAvgPositions = callCenters.length > 0 ? Math.round(callCenters.reduce((sum, cc) => sum + cc.positions, 0) / callCenters.length) : 0;
 
-    // Status distribution (based on loaded data)
     const statusCounts = callCenters.reduce((acc, cc) => {
       acc[cc.status] = (acc[cc.status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    // Country distribution (based on loaded data)
     const countryCounts = callCenters.reduce((acc, cc) => {
       acc[cc.country] = (acc[cc.country] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    // Conversion rates (based on loaded data)
     const loadedTotalLeads = callCenters.filter(cc => cc.status !== 'Closed-Lost').length;
     const loadedWonDeals = callCenters.filter(cc => cc.status === 'Closed-Won').length;
     const loadedConversionRate = loadedTotalLeads > 0 ? Math.round((loadedWonDeals / loadedTotalLeads) * 100) : 0;
@@ -130,10 +161,15 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
       conversionRate: loadedConversionRate,
       isPartialData: totalCount > callCenters.length
     };
-  }, [callCenters, totalCount]);
+  }, [callCenters, totalCount, realStats]);
 
-  // Performance metrics
+  // Performance metrics - use real data if available
   const performanceMetrics = useMemo(() => {
+    if (realStats) {
+      return realStats.performanceMetrics;
+    }
+
+    // Fallback to calculated metrics
     const now = new Date();
     const periodDays = selectedPeriod === 'week' ? 7 : selectedPeriod === 'month' ? 30 : 90;
 
@@ -152,19 +188,27 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
       recentValue,
       avgDealSize: recentWins > 0 ? Math.round(recentValue / recentWins) : 0
     };
-  }, [callCenters, selectedPeriod]);
+  }, [callCenters, selectedPeriod, realStats]);
 
-  if (loading) {
+  if (loading || loadingStats) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[...Array(8)].map((_, i) => (
-          <Card key={i} className="animate-pulse">
-            <CardContent className="p-6">
-              <div className="h-4 bg-gray-200 rounded mb-2"></div>
-              <div className="h-8 bg-gray-200 rounded"></div>
-            </CardContent>
-          </Card>
-        ))}
+      <div className="space-y-6">
+        <div className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 rounded-lg p-6 text-white">
+          <div className="animate-pulse">
+            <div className="h-6 bg-white/20 rounded mb-2"></div>
+            <div className="h-4 bg-white/20 rounded w-2/3"></div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[...Array(8)].map((_, i) => (
+            <Card key={i} className="animate-pulse">
+              <CardContent className="p-6">
+                <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                <div className="h-8 bg-gray-200 rounded"></div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -325,7 +369,7 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
           </CardHeader>
           <CardContent className="space-y-4">
             {Object.entries(stats.countryCounts)
-              .sort(([,a], [,b]) => b - a)
+              .sort(([,a], [,b]) => (b as number) - (a as number))
               .slice(0, 6)
               .map(([country, count], index) => (
                 <div key={country || `country-${index}`} className="flex items-center justify-between">
@@ -337,10 +381,10 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
                     <div className="w-20 bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: `${(count / stats.total) * 100}%` }}
+                        style={{ width: `${((count as number) / stats.total) * 100}%` }}
                       ></div>
                     </div>
-                    <Badge variant="outline">{count}</Badge>
+                    <Badge variant="outline">{count as number}</Badge>
                   </div>
                 </div>
               ))}
