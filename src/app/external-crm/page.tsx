@@ -280,6 +280,35 @@ export default function ExternalCRMPage() {
       const taskId = await TaskService.createTask(taskData);
       console.log('✅ Task created with ID:', taskId);
 
+      // Also create a calendar event if date and time are provided
+      if (newTaskDate && newTaskTime) {
+        try {
+          const calendarEvent = {
+            title: newTaskTitle.trim(),
+            description: newTaskDescription.trim() || newTaskTitle.trim(),
+            date: newTaskDate,
+            time: newTaskTime,
+            type: 'task',
+            callCenterId: newTaskCallCenter || '',
+            status: 'pending',
+          };
+
+          const response = await fetch('/api/external-crm/calendar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(calendarEvent),
+          });
+
+          if (response.ok) {
+            console.log('✅ Calendar event created successfully');
+          } else {
+            console.error('❌ Failed to create calendar event');
+          }
+        } catch (error) {
+          console.error('❌ Error creating calendar event:', error);
+        }
+      }
+
       // Reload tasks to get the updated list
       await loadDailyTasks();
 
@@ -342,6 +371,12 @@ export default function ExternalCRMPage() {
           await TaskService.markTaskAsDone(taskId);
         } else {
           await TaskService.updateTask(taskId, { status: 'pending' });
+        }
+
+        // Also update calendar event if it exists
+        const calendarTask = dailyTasks.find(t => t.id === `calendar-${taskId}`);
+        if (calendarTask && calendarTask.calendarEvent) {
+          await updateCalendarEventStatus(calendarTask.calendarEvent.id, newStatus);
         }
       } else if (task.source === 'calendar' && task.calendarEvent) {
         await updateCalendarEventStatus(task.calendarEvent.id, newStatus);
@@ -429,6 +464,18 @@ export default function ExternalCRMPage() {
 
       if (task.source === 'firebase') {
         await TaskService.deleteTask(taskId);
+
+        // Also delete corresponding calendar event if it exists
+        const calendarTask = dailyTasks.find(t => t.id === `calendar-${taskId}`);
+        if (calendarTask && calendarTask.calendarEvent) {
+          const response = await fetch(`/api/external-crm/calendar/${calendarTask.calendarEvent.id}`, {
+            method: 'DELETE',
+          });
+
+          if (response.ok) {
+            console.log('✅ Calendar event deleted:', calendarTask.calendarEvent.id);
+          }
+        }
       } else if (task.source === 'calendar' && task.calendarEvent) {
         // Delete calendar event
         const response = await fetch(`/api/external-crm/calendar/${task.calendarEvent.id}`, {
@@ -516,6 +563,35 @@ export default function ExternalCRMPage() {
         });
 
         console.log('✅ Firebase task updated:', editingTask.id);
+
+        // Also update or create calendar event if date and time are provided
+        if (newTaskDate && newTaskTime) {
+          try {
+            const calendarEvent = {
+              title: newTaskTitle.trim(),
+              description: newTaskDescription.trim() || newTaskTitle.trim(),
+              date: newTaskDate,
+              time: newTaskTime,
+              type: 'task',
+              callCenterId: newTaskCallCenter || '',
+              status: 'pending',
+            };
+
+            const response = await fetch('/api/external-crm/calendar', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(calendarEvent),
+            });
+
+            if (response.ok) {
+              console.log('✅ Calendar event created/updated successfully');
+            } else {
+              console.error('❌ Failed to create calendar event');
+            }
+          } catch (error) {
+            console.error('❌ Error creating calendar event:', error);
+          }
+        }
       } else if (editingTask.source === 'calendar' && editingTask.calendarEvent) {
         // Update calendar event
         const response = await fetch(`/api/external-crm/calendar/${editingTask.calendarEvent.id}`, {
