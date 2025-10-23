@@ -597,10 +597,15 @@ export default function ExternalCRMPage() {
 
         console.log('✅ Firebase task updated:', editingTask.id);
 
-        // Also update or create calendar event if date and time are provided
+        // Update or create calendar event if date and time are provided
         if (newTaskDate && newTaskTime) {
           try {
-            const calendarEvent = {
+            // Find existing linked calendar event
+            const linkedCalendarEvent = dailyTasks.find(t =>
+              t.source === 'calendar' && t.calendarEvent?.firebaseTaskId === editingTask.id
+            );
+
+            const calendarEventData = {
               title: newTaskTitle.trim(),
               description: newTaskDescription.trim() || newTaskTitle.trim(),
               date: newTaskDate,
@@ -612,21 +617,34 @@ export default function ExternalCRMPage() {
               firebaseTaskId: editingTask.id, // Link calendar event to Firebase task
             };
 
-            const response = await fetch('/api/external-crm/calendar', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(calendarEvent),
-            });
+            let response;
+            if (linkedCalendarEvent && linkedCalendarEvent.calendarEvent) {
+              // Update existing calendar event
+              console.log('🔄 Updating existing calendar event:', linkedCalendarEvent.calendarEvent.id);
+              response = await fetch(`/api/external-crm/calendar/${linkedCalendarEvent.calendarEvent.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(calendarEventData),
+              });
+            } else {
+              // Create new calendar event if none exists
+              console.log('➕ Creating new calendar event for updated task');
+              response = await fetch('/api/external-crm/calendar', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(calendarEventData),
+              });
+            }
 
             if (response.ok) {
-              console.log('✅ Calendar event created/updated successfully');
+              console.log('✅ Calendar event updated successfully');
               // Trigger calendar refresh
               setCalendarRefreshTrigger(prev => prev + 1);
             } else {
-              console.error('❌ Failed to create calendar event');
+              console.error('❌ Failed to update calendar event');
             }
           } catch (error) {
-            console.error('❌ Error creating calendar event:', error);
+            console.error('❌ Error updating calendar event:', error);
           }
         }
       } else if (editingTask.source === 'calendar' && editingTask.calendarEvent) {
@@ -652,8 +670,8 @@ export default function ExternalCRMPage() {
         }
       }
 
-      // Reload tasks to get updated list
-      await loadDailyTasks();
+      // Reload tasks to get updated list (with a small delay to ensure calendar event is updated)
+      setTimeout(() => loadDailyTasks(), 500);
 
       // Reset form and close dialog
       setNewTaskTitle('');
