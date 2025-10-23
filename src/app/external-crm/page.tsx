@@ -170,7 +170,10 @@ export default function ExternalCRMPage() {
       });
 
       // Convert calendar events to DailyTask format
-      const convertedCalendarEvents = todayCalendarEvents.map((event: any) => ({
+      // Filter out calendar events that have firebaseTaskId (these are already represented by Firebase tasks)
+      const calendarEventsWithoutFirebaseTasks = todayCalendarEvents.filter((event: any) => !event.firebaseTaskId);
+
+      const convertedCalendarEvents = calendarEventsWithoutFirebaseTasks.map((event: any) => ({
         id: `calendar-${event.id}`,
         title: event.title,
         description: event.description || '',
