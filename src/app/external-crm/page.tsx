@@ -1399,21 +1399,24 @@ export default function ExternalCRMPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between mb-6">
+      <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center flex-shrink-0">
               <Building2 className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Call Center CRM</h1>
-              <p className="text-sm text-gray-600">Manage your call center operations</p>
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">Call Center CRM</h1>
+              <p className="text-sm text-gray-600 hidden sm:block">Manage your call center operations</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-600">Welcome, {user?.displayName || user?.email}</span>
-            <Button variant="outline" onClick={handleLogout}>
-              Logout
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="text-sm text-gray-600 truncate max-w-[120px] sm:max-w-none">
+              Welcome, {user?.displayName || user?.email}
+            </span>
+            <Button variant="outline" size="sm" onClick={handleLogout}>
+              <span className="hidden sm:inline">Logout</span>
+              <span className="sm:hidden">Exit</span>
             </Button>
           </div>
         </div>
@@ -1426,7 +1429,7 @@ export default function ExternalCRMPage() {
       </div>
 
       {/* Main Content */}
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         <div className="max-w-7xl mx-auto">
           {renderContent()}
         </div>
