@@ -4,11 +4,12 @@ import { ExternalCRMService } from '@/lib/services/external-crm-service';
 // GET /api/external-crm/[id] - Get a specific call center
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
-    const callCenter = await ExternalCRMService.getCallCenter(id);
+    const { id } = await params;
+    const callCenterId = parseInt(id);
+    const callCenter = await ExternalCRMService.getCallCenter(callCenterId);
 
     if (!callCenter) {
       return NextResponse.json(
@@ -30,13 +31,14 @@ export async function GET(
 // PUT /api/external-crm/[id] - Update a call center
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
+    const { id } = await params;
+    const callCenterId = parseInt(id);
     const updates = await request.json();
 
-    await ExternalCRMService.updateCallCenter(id, updates);
+    await ExternalCRMService.updateCallCenter(callCenterId, updates);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -51,11 +53,12 @@ export async function PUT(
 // DELETE /api/external-crm/[id] - Delete a call center
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const id = parseInt(params.id);
-    await ExternalCRMService.deleteCallCenter(id);
+    const { id } = await params;
+    const callCenterId = parseInt(id);
+    await ExternalCRMService.deleteCallCenter(callCenterId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

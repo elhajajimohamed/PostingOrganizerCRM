@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { doc, updateDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
+interface CalendarEventUpdate extends Record<string, unknown> {
+  title?: string;
+  description?: string;
+  date?: string;
+  time?: string;
+  location?: string;
+  type?: string;
+  status?: string;
+  completedAt?: string | null;
+  callCenterId?: string;
+  updatedAt?: string;
+}
+
 // PUT /api/external-crm/calendar/[id] - Update a calendar event
 export async function PUT(
   request: NextRequest,
@@ -19,7 +32,7 @@ export async function PUT(
       );
     }
 
-    const updateData: any = {
+    const updateData: CalendarEventUpdate = {
       title,
       description,
       date,
