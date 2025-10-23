@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,15 +11,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ClientTopup, FinancialAnalyticsService } from '@/lib/services/financial-analytics-service';
 import { CallCenter } from '@/lib/types/external-crm';
 import { ExternalCRMService } from '@/lib/services/external-crm-service';
+import { Search, Check } from 'lucide-react';
 
 interface ClientTopUpsManagementProps {
   callCenters: CallCenter[];
+  onDataChange?: () => void;
 }
 
 const PAYMENT_METHODS = FinancialAnalyticsService.getPaymentMethodOptions();
 const COUNTRIES = FinancialAnalyticsService.getCountryOptions();
 
-export function ClientTopUpsManagement({ callCenters }: ClientTopUpsManagementProps) {
+export function ClientTopUpsManagement({ callCenters, onDataChange }: ClientTopUpsManagementProps) {
   const [topups, setTopups] = useState<ClientTopup[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -34,6 +36,10 @@ export function ClientTopUpsManagement({ callCenters }: ClientTopUpsManagementPr
     country: '',
     notes: '',
   });
+
+  // Searchable call center dropdown state
+  const [callCenterSearch, setCallCenterSearch] = useState('');
+  const [showCallCenterDropdown, setShowCallCenterDropdown] = useState(false);
 
   useEffect(() => {
     loadTopups();
@@ -87,6 +93,8 @@ export function ClientTopUpsManagement({ callCenters }: ClientTopUpsManagementPr
       setShowForm(false);
       setEditingTopup(undefined);
       resetForm();
+      // Notify parent component to refresh data
+      onDataChange?.();
     } catch (error) {
       console.error('Error saving top-up:', error);
     }
@@ -117,10 +125,33 @@ export function ClientTopUpsManagement({ callCenters }: ClientTopUpsManagementPr
       const result = await response.json();
       if (result.success) {
         setTopups(prev => prev.filter(t => t.id !== topupId));
+        // Notify parent component to refresh data
+        onDataChange?.();
       }
     } catch (error) {
       console.error('Error deleting top-up:', error);
     }
+  };
+
+  // Filtered call centers based on search
+  const filteredCallCenters = useMemo(() => {
+    if (!callCenterSearch.trim()) return callCenters.slice(0, 10); // Show first 10 if no search
+    return callCenters.filter(center =>
+      center.name.toLowerCase().includes(callCenterSearch.toLowerCase()) ||
+      center.city.toLowerCase().includes(callCenterSearch.toLowerCase()) ||
+      center.country.toLowerCase().includes(callCenterSearch.toLowerCase())
+    ).slice(0, 20); // Limit to 20 results for performance
+  }, [callCenters, callCenterSearch]);
+
+  const selectCallCenter = (center: CallCenter) => {
+    setFormData(prev => ({
+      ...prev,
+      callCenterName: center.name,
+      country: center.country,
+      clientId: center.id.toString()
+    }));
+    setCallCenterSearch('');
+    setShowCallCenterDropdown(false);
   };
 
   const resetForm = () => {
@@ -134,12 +165,20 @@ export function ClientTopUpsManagement({ callCenters }: ClientTopUpsManagementPr
       country: '',
       notes: '',
     });
+    setCallCenterSearch('');
+    setShowCallCenterDropdown(false);
   };
 
   const handleCancel = () => {
     setShowForm(false);
     setEditingTopup(undefined);
     resetForm();
+  };
+
+  const handleCallCenterInputChange = (value: string) => {
+    setFormData(prev => ({ ...prev, callCenterName: value }));
+    setCallCenterSearch(value);
+    setShowCallCenterDropdown(true);
   };
 
   const totalTopups = topups.reduce((sum, topup) => sum + topup.amountEUR, 0);
@@ -182,12 +221,49 @@ export function ClientTopUpsManagement({ callCenters }: ClientTopUpsManagementPr
                 </div>
                 <div>
                   <Label htmlFor="callCenterName">Call Center Name *</Label>
-                  <Input
-                    id="callCenterName"
-                    value={formData.callCenterName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, callCenterName: e.target.value }))}
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="callCenterName"
+                      value={formData.callCenterName}
+                      onChange={(e) => handleCallCenterInputChange(e.target.value)}
+                      onFocus={() => setShowCallCenterDropdown(true)}
+                      onBlur={() => {
+                        // Delay hiding to allow click on dropdown items
+                        setTimeout(() => setShowCallCenterDropdown(false), 200);
+                      }}
+                      placeholder="Search call centers..."
+                      required
+                    />
+                    <Search className="absolute right-3 top-3 w-4 h-4 text-gray-400" />
+
+                    {showCallCenterDropdown && (
+                      <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                        {filteredCallCenters.length === 0 ? (
+                          <div className="px-3 py-2 text-sm text-gray-500">
+                            No call centers found
+                          </div>
+                        ) : (
+                          filteredCallCenters.map((center) => (
+                            <div
+                              key={center.id}
+                              className="px-3 py-2 hover:bg-gray-100 cursor-pointer flex items-center justify-between"
+                              onClick={() => selectCallCenter(center)}
+                            >
+                              <div>
+                                <div className="font-medium">{center.name}</div>
+                                <div className="text-sm text-gray-500">
+                                  {center.city}, {center.country} • {center.positions} positions
+                                </div>
+                              </div>
+                              {formData.callCenterName === center.name && (
+                                <Check className="w-4 h-4 text-green-500" />
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

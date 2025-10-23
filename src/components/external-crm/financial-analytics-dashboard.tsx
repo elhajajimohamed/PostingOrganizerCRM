@@ -84,6 +84,16 @@ export function FinancialAnalyticsDashboard({ callCenters, loading }: FinancialA
     loadFinancialData();
   }, [callCenters]);
 
+  // Refresh financial data when top-ups are added/updated
+  const refreshFinancialData = async () => {
+    try {
+      const data = await FinancialAnalyticsService.generateFinancialReport(callCenters);
+      setFinancialData(data);
+    } catch (error) {
+      console.error('Error refreshing financial data:', error);
+    }
+  };
+
   // Filter clients based on current filters
   const filteredClients = useMemo(() => {
     if (!financialData) return [];
@@ -460,7 +470,7 @@ export function FinancialAnalyticsDashboard({ callCenters, loading }: FinancialA
 
         {/* Top-ups Management */}
         <TabsContent value="topups" className="space-y-6">
-          <ClientTopUpsManagement callCenters={callCenters} />
+          <ClientTopUpsManagement callCenters={callCenters} onDataChange={refreshFinancialData} />
         </TabsContent>
 
         {/* Country Insights */}
