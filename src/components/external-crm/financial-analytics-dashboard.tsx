@@ -54,6 +54,29 @@ export function FinancialAnalyticsDashboard({ callCenters, loading }: FinancialA
         setFinancialData(data);
       } catch (error) {
         console.error('Error loading financial data:', error);
+        // Set fallback data on error
+        setFinancialData({
+          overview: {
+            monthlyTarget: 3000,
+            currentTurnover: 0,
+            commissionRate: 0,
+            commissionAmount: 0,
+            progressPercentage: 0
+          },
+          clients: [],
+          countryInsights: [],
+          performance: {
+            totalConsumption: 0,
+            estimatedMargin: 0,
+            averageTopupPerClient: 0,
+            activeClientsCount: 0
+          },
+          alerts: [],
+          rankings: {
+            topSpender: null,
+            risingClient: null
+          }
+        });
       } finally {
         setLoadingFinancial(false);
       }
