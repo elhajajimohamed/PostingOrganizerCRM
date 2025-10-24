@@ -1060,15 +1060,22 @@ export default function ExternalCRMPage() {
                 onLoadMore={loadMoreCallCenters}
                 totalCount={totalCount}
                 onViewDuplicates={() => setActiveTab('duplicates')}
-                onSearch={(searchTerm) => {
+                onSearch={async (searchTerm) => {
                   console.log('🔍 Search triggered:', searchTerm);
-                  if (searchTerm.trim()) {
-                    // When searching, load all records
-                    loadCallCenters(true, 1, searchTerm);
-                  } else {
-                    // When search is cleared, load first page normally
-                    loadCallCenters(true, 1);
+                  try {
+                    if (searchTerm.trim()) {
+                      // When searching, load all records
+                      await loadCallCenters(true, 1, searchTerm);
+                    } else {
+                      // When search is cleared, load first page normally
+                      await loadCallCenters(true, 1);
+                    }
+                  } catch (error) {
+                    console.error('❌ Search error:', error);
                   }
+                }}
+                onSearchComplete={() => {
+                  console.log('✅ Search completed');
                 }}
               />
             </div>

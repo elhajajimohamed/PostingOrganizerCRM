@@ -44,6 +44,7 @@ interface CallCentersListProps {
   totalCount?: number;
   onViewDuplicates?: () => void;
   onSearch?: (searchTerm: string) => void;
+  onSearchComplete?: () => void;
 }
 
 const STATUS_COLORS = {
@@ -68,7 +69,8 @@ export function CallCentersList({
   onLoadMore,
   totalCount = 0,
   onViewDuplicates,
-  onSearch
+  onSearch,
+  onSearchComplete
 }: CallCentersListProps) {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
@@ -105,6 +107,7 @@ export function CallCentersList({
     steps: [] as Array<{ title: string; description: string; priority: string }>,
     stepDate: new Date().toISOString().split('T')[0],
   });
+  const [isSearching, setIsSearching] = useState(false);
 
   // Debounced search
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -112,12 +115,17 @@ export function CallCentersList({
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
-    searchTimeoutRef.current = setTimeout(() => {
+    searchTimeoutRef.current = setTimeout(async () => {
+      setIsSearching(true);
       if (onSearch) {
-        onSearch(searchTerm);
+        await onSearch(searchTerm);
+      }
+      setIsSearching(false);
+      if (onSearchComplete) {
+        onSearchComplete();
       }
     }, 300); // 300ms delay
-  }, [onSearch]);
+  }, [onSearch, onSearchComplete]);
 
   const handleCallCenterClick = (callCenter: CallCenter) => {
     setSelectedCallCenter(callCenter);
@@ -989,7 +997,14 @@ ${index + 1}. ${cc.name}
         </CardHeader>
         <CardContent className="flex-1 p-0 overflow-hidden">
           <div className="h-full overflow-y-auto p-6" style={{ height: '100%', minHeight: '400px' }}>
-          {sortedCallCenters.length === 0 ? (
+          {isSearching ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Searching call centers...</p>
+              </div>
+            </div>
+          ) : sortedCallCenters.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
                 <Building className="w-16 h-16 mx-auto" />
