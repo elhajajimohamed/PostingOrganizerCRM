@@ -38,7 +38,6 @@ interface CallCentersListProps {
   onDelete: (id: number) => void;
   onBatchDelete: (ids: number[]) => void;
   onBatchTag: (ids: number[], tag: string) => void;
-  loading?: boolean;
   hasMore?: boolean;
   onLoadMore?: () => void;
   totalCount?: number;
@@ -64,7 +63,6 @@ export function CallCentersList({
   onDelete,
   onBatchDelete,
   onBatchTag,
-  loading = false,
   hasMore = false,
   onLoadMore,
   totalCount = 0,
@@ -272,8 +270,8 @@ export function CallCentersList({
       callCenter.name.toLowerCase().includes(searchTerm) ||
       callCenter.city.toLowerCase().includes(searchTerm) ||
       callCenter.country.toLowerCase().includes(searchTerm) ||
-      callCenter.email?.toLowerCase().includes(searchTerm) ||
-      callCenter.notes?.toLowerCase().includes(searchTerm) ||
+      (callCenter.email && callCenter.email.toLowerCase().includes(searchTerm)) ||
+      (callCenter.notes && typeof callCenter.notes === 'string' && callCenter.notes.toLowerCase().includes(searchTerm)) ||
       callCenter.tags?.some(tag => tag.toLowerCase().includes(searchTerm)) ||
       callCenter.phones?.some(phone => phone.includes(searchTerm));
 
@@ -485,13 +483,9 @@ ${index + 1}. ${cc.name}
     hasMore,
     onLoadMore: !!onLoadMore,
     totalCount,
-    loading,
-    searchTerm: filters.search
+    searchTerm: filters.search,
+    isSearching
   });
-
-  if (loading) {
-    return <div className="text-center py-8">Loading call centers...</div>;
-  }
 
   return (
     <div className="flex flex-col h-full">
@@ -1251,13 +1245,13 @@ ${index + 1}. ${cc.name}
             <div className="flex justify-center mt-6">
               <Button
                 onClick={onLoadMore}
-                disabled={loading}
+                disabled={isSearching}
                 className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
               >
-                {loading ? (
+                {isSearching ? (
                   <>
                     <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Loading...
+                    Searching...
                   </>
                 ) : (
                   <>

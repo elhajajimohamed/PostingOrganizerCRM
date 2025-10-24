@@ -124,7 +124,7 @@ export class ExternalCRMService {
                  callCenter.city.toLowerCase().includes(searchTerm) ||
                  callCenter.country.toLowerCase().includes(searchTerm) ||
                  (callCenter.email && callCenter.email.toLowerCase().includes(searchTerm)) ||
-                 (callCenter.notes && typeof callCenter.notes === 'string' && callCenter.notes.toLowerCase().includes(searchTerm)) ||
+                 (callCenter.notes && typeof callCenter.notes === 'string' && String(callCenter.notes).toLowerCase().includes(searchTerm)) ||
                  callCenter.tags?.some(tag => tag.toLowerCase().includes(searchTerm)) ||
                  callCenter.phones?.some(phone => phone.includes(searchTerm));
 

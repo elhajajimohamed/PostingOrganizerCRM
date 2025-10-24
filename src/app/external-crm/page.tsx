@@ -1055,7 +1055,6 @@ export default function ExternalCRMPage() {
                 onDelete={handleDeleteCallCenter}
                 onBatchDelete={handleBatchDelete}
                 onBatchTag={handleBatchTag}
-                loading={loading}
                 hasMore={hasMore}
                 onLoadMore={loadMoreCallCenters}
                 totalCount={totalCount}
