@@ -48,6 +48,13 @@ export class ExternalCRMService {
     limitParam?: number
   ): Promise<CallCenter[]> {
     try {
+      console.log('🔍 ExternalCRMService.getCallCenters called with:', {
+        filters,
+        sort,
+        offset,
+        limitParam
+      });
+
       const constraints: QueryConstraint[] = [];
 
       // Allow unlimited queries when limitParam is explicitly undefined (for total count)
@@ -67,8 +74,13 @@ export class ExternalCRMService {
         constraints.push(limit(limitValue));
       }
 
+      console.log('🔍 ExternalCRMService - Building query with constraints:', constraints.length);
+
       const q = query(collection(db, COLLECTION_NAMES.CALL_CENTERS), ...constraints);
+      console.log('🔍 ExternalCRMService - Executing query...');
+
       const querySnapshot = await getDocs(q);
+      console.log('✅ ExternalCRMService - Query executed, docs count:', querySnapshot.docs.length);
 
       let callCenters: CallCenter[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
@@ -99,23 +111,38 @@ export class ExternalCRMService {
         } as CallCenter;
       });
 
+      console.log('✅ ExternalCRMService - Mapped call centers:', callCenters.length);
+
       // Apply client-side search filtering if search term is provided
       if (filters?.search && filters.search.trim()) {
         const searchTerm = filters.search.toLowerCase().trim();
+        console.log('🔍 ExternalCRMService - Applying search filter:', searchTerm);
+
+        const originalCount = callCenters.length;
         callCenters = callCenters.filter(callCenter => {
-          return callCenter.name.toLowerCase().includes(searchTerm) ||
+          const matches = callCenter.name.toLowerCase().includes(searchTerm) ||
                  callCenter.city.toLowerCase().includes(searchTerm) ||
                  callCenter.country.toLowerCase().includes(searchTerm) ||
-                 callCenter.email?.toLowerCase().includes(searchTerm) ||
-                 callCenter.notes?.toLowerCase().includes(searchTerm) ||
+                 (callCenter.email && callCenter.email.toLowerCase().includes(searchTerm)) ||
+                 (callCenter.notes && typeof callCenter.notes === 'string' && callCenter.notes.toLowerCase().includes(searchTerm)) ||
                  callCenter.tags?.some(tag => tag.toLowerCase().includes(searchTerm)) ||
                  callCenter.phones?.some(phone => phone.includes(searchTerm));
+
+          if (matches) {
+            console.log('✅ ExternalCRMService - Match found:', callCenter.name);
+          }
+
+          return matches;
         });
+
+        console.log('✅ ExternalCRMService - Search filtered from', originalCount, 'to', callCenters.length, 'results');
       }
 
+      console.log('✅ ExternalCRMService - Returning call centers:', callCenters.length);
       return callCenters;
     } catch (error) {
-      console.error('Error fetching call centers:', error);
+      console.error('❌ ExternalCRMService - Error fetching call centers:', error);
+      console.error('❌ ExternalCRMService - Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       throw error;
     }
   }

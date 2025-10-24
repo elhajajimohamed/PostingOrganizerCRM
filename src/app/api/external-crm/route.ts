@@ -6,6 +6,8 @@ import { CallCenter } from '@/lib/types/external-crm';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
+    console.log('🔍 API Route - Received params:', Object.fromEntries(searchParams.entries()));
+
     const filters = {
       country: searchParams.get('country') || undefined,
       city: searchParams.get('city') || undefined,
@@ -17,6 +19,8 @@ export async function GET(request: NextRequest) {
       search: searchParams.get('search') || undefined,
     };
 
+    console.log('🔍 API Route - Parsed filters:', filters);
+
     const sort = {
       field: (searchParams.get('sortField') || 'createdAt') as keyof CallCenter,
       direction: (searchParams.get('sortDirection') as 'asc' | 'desc') || 'desc',
@@ -26,10 +30,14 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 10;
     const loadAll = searchParams.get('all') === 'true';
 
+    console.log('🔍 API Route - Load config:', { offset, limit, loadAll, sort });
+
     const callCenters = await ExternalCRMService.getCallCenters(filters as any, sort, offset, loadAll ? undefined : limit);
+    console.log('✅ API Route - Retrieved call centers:', callCenters.length);
 
     // Get total count for pagination (without limit to get all records count)
     const totalCallCenters = await ExternalCRMService.getCallCenters(filters as any, sort, 0, undefined);
+    console.log('✅ API Route - Total count:', totalCallCenters.length);
 
     return NextResponse.json({
       success: true,
@@ -37,9 +45,10 @@ export async function GET(request: NextRequest) {
       total: totalCallCenters.length
     });
   } catch (error) {
-    console.error('Error fetching call centers:', error);
+    console.error('❌ API Route - Error fetching call centers:', error);
+    console.error('❌ API Route - Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
-      { success: false, error: 'Failed to fetch call centers' },
+      { success: false, error: 'Failed to fetch call centers', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
