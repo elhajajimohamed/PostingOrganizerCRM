@@ -1110,19 +1110,7 @@ ${index + 1}. ${cc.name}
 
                         <div>
                           {callCenter.phones.length > 0 && (
-                            <div className="flex items-center space-x-2">
-                              <p className="text-sm font-medium">{callCenter.phones[0]}</p>
-                              {callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
-                                <a
-                                  href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
-                                >
-                                  WhatsApp
-                                </a>
-                              )}
-                            </div>
+                            <p className="text-sm font-medium">{callCenter.phones[0]}</p>
                           )}
                           {callCenter.email && (
                             <p className="text-sm text-gray-600 truncate">{callCenter.email}</p>
