@@ -29,7 +29,9 @@ import {
   Step,
   CallLog,
   Recharge,
+  PhoneInfo,
 } from '@/lib/types/external-crm';
+import { PhoneDetectionService } from './phone-detection-service';
 
 const COLLECTION_NAMES = {
   CALL_CENTERS: 'callCenters',
@@ -94,6 +96,7 @@ export class ExternalCRMService {
           value: data.value || 0,
           currency: data.currency || 'USD',
           phones: data.phones || [],
+          phone_infos: data.phone_infos || [],
           emails: data.emails || [],
           website: data.website || '',
           address: data.address || '',
@@ -174,6 +177,7 @@ export class ExternalCRMService {
           steps,
           callHistory,
           recharges,
+          phone_infos: data.phone_infos || [],
         } as CallCenter;
       }
       return null;
@@ -185,9 +189,17 @@ export class ExternalCRMService {
 
   static async createCallCenter(callCenter: Omit<CallCenter, 'id' | 'createdAt'>): Promise<number> {
     try {
+      // Run phone detection on phones
+      let phoneInfos: PhoneInfo[] = [];
+      if (callCenter.phones && callCenter.phones.length > 0) {
+        phoneInfos = callCenter.phones.map(phone => PhoneDetectionService.detectPhone(phone, callCenter.country));
+      }
+
+      const callCenterWithInfo = { ...callCenter, phone_infos: phoneInfos };
+
       // Development mode: Try without authentication first
       const docRef = await addDoc(collection(db, COLLECTION_NAMES.CALL_CENTERS), {
-        ...callCenter,
+        ...callCenterWithInfo,
         createdAt: Timestamp.now(),
         lastContacted: callCenter.lastContacted ? Timestamp.fromDate(new Date(callCenter.lastContacted)) : null,
       });
@@ -205,6 +217,14 @@ export class ExternalCRMService {
 
   static async updateCallCenter(id: number, updates: Partial<CallCenter>): Promise<void> {
     try {
+      // Run phone detection if phones are updated
+      if (updates.phones) {
+        const callCenter = await this.getCallCenter(id);
+        const country = callCenter?.country;
+        const phoneInfos = updates.phones.map(phone => PhoneDetectionService.detectPhone(phone, country));
+        updates.phone_infos = phoneInfos;
+      }
+
       const docRef = doc(db, COLLECTION_NAMES.CALL_CENTERS, id.toString());
       const updateData: Record<string, any> = { ...updates };
 
@@ -484,6 +504,110 @@ export class ExternalCRMService {
     }
   }
 
+  // Migration function to update phone detection for existing call centers
+  static async migratePhoneDetection(): Promise<{ migrated: number; errors: number }> {
+    try {
+      console.log('🔄 [MIGRATION] Starting phone detection migration for existing call centers...');
+
+      // Get all call centers without limit for migration
+      const q = query(collection(db, COLLECTION_NAMES.CALL_CENTERS));
+      const querySnapshot = await getDocs(q);
+      const callCenters = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: data.name || '',
+          country: data.country || '',
+          city: data.city || '',
+          positions: data.positions || 0,
+          status: data.status || 'New',
+          value: data.value || 0,
+          currency: data.currency || 'USD',
+          phones: data.phones || [],
+          phone_infos: data.phone_infos || [],
+          emails: data.emails || [],
+          website: data.website || '',
+          address: data.address || '',
+          source: data.source || '',
+          type: data.type || '',
+          tags: data.tags || [],
+          markets: data.markets || [],
+          competitors: data.competitors || [],
+          socialMedia: data.socialMedia || [],
+          foundDate: data.foundDate || '',
+          lastContacted: data.lastContacted?.toDate?.()?.toISOString() || data.lastContacted,
+          notes: data.notes || '',
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
+        } as CallCenter;
+      });
+
+      console.log(`📊 [MIGRATION] Found ${callCenters.length} call centers to process`);
+
+      let migrated = 0;
+      let errors = 0;
+
+      // Process sequentially (one by one) for maximum stability
+      for (let i = 0; i < callCenters.length; i++) {
+        const callCenter = callCenters[i];
+
+        // Only process call centers that have phones
+        if (!callCenter.phones || callCenter.phones.length === 0) {
+          console.log(`⏭️ [MIGRATION] Skipping call center ${i + 1}/${callCenters.length}: "${callCenter.name}" (no phones)`);
+          continue;
+        }
+
+        console.log(`🔄 [MIGRATION] Processing call center ${i + 1}/${callCenters.length}: "${callCenter.name}" (${callCenter.phones.length} phones)`);
+
+        try {
+          let needsUpdate = false;
+          let phoneInfos: PhoneInfo[] = [];
+
+          // Check if phone detection needs to be run
+          if (!callCenter.phone_infos || callCenter.phone_infos.length !== callCenter.phones.length) {
+            needsUpdate = true;
+            phoneInfos = callCenter.phones.map(phone => PhoneDetectionService.detectPhone(phone, callCenter.country));
+          } else {
+            // Check if any phone_info is missing or has low confidence
+            for (let j = 0; j < callCenter.phones.length; j++) {
+              const phone = callCenter.phones[j];
+              const phoneInfo = callCenter.phone_infos[j];
+
+              if (!phoneInfo || !phoneInfo.is_mobile || phoneInfo.whatsapp_confidence < 0.7) {
+                needsUpdate = true;
+                phoneInfos = callCenter.phones.map(p => PhoneDetectionService.detectPhone(p, callCenter.country));
+                console.log(`📱 [MIGRATION] Call center "${callCenter.name}" needs update: low confidence or not mobile`);
+                break;
+              }
+            }
+          }
+
+          if (needsUpdate) {
+            await this.updateCallCenter(Number(callCenter.id), { phone_infos: phoneInfos });
+            migrated++;
+            console.log(`📱 [MIGRATION] Updated phone detection for call center: "${callCenter.name}" (${callCenter.id})`);
+          } else {
+            console.log(`⏭️ [MIGRATION] Skipping call center ${i + 1}/${callCenters.length}: "${callCenter.name}" (already up to date)`);
+          }
+        } catch (centerError) {
+          console.error(`❌ [MIGRATION] Error updating call center ${callCenter.id}:`, centerError);
+          errors++;
+        }
+
+        // Small delay between updates to avoid rate limiting
+        if (i < callCenters.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100)); // 100ms delay for speed
+        }
+      }
+
+      console.log(`✅ [MIGRATION] Phone detection migration completed. Migrated: ${migrated}, Errors: ${errors}`);
+      return { migrated, errors };
+    } catch (error) {
+      console.error('❌ [MIGRATION] Phone detection migration failed:', error);
+      throw error;
+    }
+  }
+
   // Migration function to create calendar events for existing steps
   static async migrateExistingStepsToCalendar(): Promise<{ migrated: number; errors: number }> {
     try {
@@ -584,6 +708,7 @@ export class ExternalCRMSubcollectionsService {
       return querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
+        phone_info: doc.data().phone_info || undefined,
       })) as Contact[];
     } catch (error) {
       console.error('Error fetching contacts:', error);
@@ -592,7 +717,18 @@ export class ExternalCRMSubcollectionsService {
   }
   static async addContact(callCenterId: string, contact: Omit<Contact, 'id'>): Promise<string> {
     try {
-      const docRef = await addDoc(collection(db, `${COLLECTION_NAMES.CALL_CENTERS}/${callCenterId}/contacts`), contact);
+      // Get call center country for detection
+      const callCenter = await ExternalCRMService.getCallCenter(callCenterId);
+      const country = callCenter?.country;
+
+      // Run phone detection if phone is provided
+      let phoneInfo;
+      if (contact.phone) {
+        phoneInfo = PhoneDetectionService.detectPhone(contact.phone, country);
+      }
+
+      const contactWithInfo = { ...contact, phone_info: phoneInfo };
+      const docRef = await addDoc(collection(db, `${COLLECTION_NAMES.CALL_CENTERS}/${callCenterId}/contacts`), contactWithInfo);
       return docRef.id;
     } catch (error) {
       console.error('Error adding contact:', error);
@@ -602,6 +738,17 @@ export class ExternalCRMSubcollectionsService {
 
   static async updateContact(callCenterId: string, contactId: string, updates: Partial<Contact>): Promise<void> {
     try {
+      // Get call center country for detection
+      const callCenter = await ExternalCRMService.getCallCenter(callCenterId);
+      const country = callCenter?.country;
+
+      // Run phone detection if phone is updated
+      let phoneInfo;
+      if (updates.phone) {
+        phoneInfo = PhoneDetectionService.detectPhone(updates.phone, country);
+        updates.phone_info = phoneInfo;
+      }
+
       const docRef = doc(db, `${COLLECTION_NAMES.CALL_CENTERS}/${callCenterId}/contacts/${contactId}`);
       await updateDoc(docRef, updates);
     } catch (error) {

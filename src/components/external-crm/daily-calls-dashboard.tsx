@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label';
 import { DailyCallCenter, DailyCallSession, CallLog, CallCenter } from '@/lib/types/external-crm';
 import { CallCenterDetailModal } from './call-center-detail-modal';
 import { CallHistoryPreview } from './call-history-preview';
+import { PhoneDetectionService } from '@/lib/services/phone-detection-service';
 import {
   Phone,
   CheckCircle,
@@ -457,9 +458,21 @@ export function DailyCallsDashboard({ className }: DailyCallsDashboardProps) {
 
                       <div className="flex flex-wrap gap-1 mb-3">
                         {dailyCC.callCenter.phones?.slice(0, 2).map((phone, index) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {phone}
-                          </Badge>
+                          <div key={index} className="flex items-center space-x-1">
+                            <Badge variant="outline" className="text-xs">
+                              {phone}
+                            </Badge>
+                            {dailyCC.callCenter.phone_infos && dailyCC.callCenter.phone_infos[index] && dailyCC.callCenter.phone_infos[index].is_mobile && dailyCC.callCenter.phone_infos[index].whatsapp_confidence >= 0.7 && (
+                              <a
+                                href={PhoneDetectionService.getWhatsAppLink(phone)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center px-1 py-0.5 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                              >
+                                WA
+                              </a>
+                            )}
+                          </div>
                         ))}
                         {dailyCC.callCenter.phones && dailyCC.callCenter.phones.length > 2 && (
                           <Badge variant="outline" className="text-xs">
@@ -469,6 +482,16 @@ export function DailyCallsDashboard({ className }: DailyCallsDashboardProps) {
                       </div>
 
                       <div className="flex gap-2">
+                        {dailyCC.callCenter.phones.length > 0 && dailyCC.callCenter.phone_infos && dailyCC.callCenter.phone_infos[0] && dailyCC.callCenter.phone_infos[0].is_mobile && dailyCC.callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
+                          <a
+                            href={PhoneDetectionService.getWhatsAppLink(dailyCC.callCenter.phones[0])}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                          >
+                            WhatsApp
+                          </a>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
@@ -577,15 +600,27 @@ export function DailyCallsDashboard({ className }: DailyCallsDashboardProps) {
                         </div>
                       </div>
 
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => handleViewDetails(dailyCC)}
-                      >
-                        <Eye className="w-3 h-3 mr-1" />
-                        View Details
-                      </Button>
+                      <div className="flex gap-2">
+                        {dailyCC.callCenter.phones.length > 0 && dailyCC.callCenter.phone_infos && dailyCC.callCenter.phone_infos[0] && dailyCC.callCenter.phone_infos[0].is_mobile && dailyCC.callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
+                          <a
+                            href={PhoneDetectionService.getWhatsAppLink(dailyCC.callCenter.phones[0])}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                          >
+                            WhatsApp
+                          </a>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="flex-1"
+                          onClick={() => handleViewDetails(dailyCC)}
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View Details
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </div>

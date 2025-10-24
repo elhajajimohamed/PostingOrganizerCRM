@@ -7,6 +7,7 @@ export interface CallCenter {
    positions: number;
    status: 'New' | 'Contacted' | 'Qualified' | 'Proposal' | 'Negotiation' | 'Closed-Won' | 'Closed-Lost' | 'On-Hold';
    phones: string[];
+   phone_infos?: PhoneInfo[];
    emails: string[];
    website: string;
    tags: string[];
@@ -34,11 +35,22 @@ export interface CallCenter {
    lastUpdated?: string;
 }
 
+export interface PhoneInfo {
+  original: string;
+  phone_norm: string;
+  country_code: string;
+  nsn: string;
+  is_mobile: boolean;
+  whatsapp_confidence: number;
+  mobile_detection_reason: string;
+}
+
 export interface Contact {
   id: string;
   name: string;
   position: string;
   phone: string;
+  phone_info?: PhoneInfo;
   email: string;
   notes: string;
   lastContact: string;
@@ -50,6 +62,7 @@ export interface CallCenterContact {
   position: string;
   email: string;
   phone: string;
+  phone_info?: PhoneInfo;
   department: string;
   notes: string;
   createdAt: string;
@@ -110,6 +123,7 @@ export interface Suggestion {
    name: string;
    address: string;
    phones: string[];
+   phone_infos?: PhoneInfo[];
    country: 'Morocco' | 'Tunisia' | 'Senegal' | 'Ivory Coast' | 'Guinea' | 'Cameroon';
    city: string;
    positions: number;

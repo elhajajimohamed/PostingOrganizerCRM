@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Suggestion } from '@/lib/types/external-crm';
+import { PhoneDetectionService } from '@/lib/services/phone-detection-service';
 
 interface SuggestionsListProps {
   suggestions: Suggestion[];
@@ -121,7 +122,19 @@ export function SuggestionsList({
 
                     <div className="flex items-center space-x-2">
                       {suggestion.phones.length > 0 && (
-                        <p className="text-sm">{suggestion.phones[0]}</p>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-sm">{suggestion.phones[0]}</p>
+                          {suggestion.phone_infos && suggestion.phone_infos[0] && suggestion.phone_infos[0].is_mobile && suggestion.phone_infos[0].whatsapp_confidence >= 0.7 && (
+                            <a
+                              href={PhoneDetectionService.getWhatsAppLink(suggestion.phones[0])}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                            >
+                              WhatsApp
+                            </a>
+                          )}
+                        </div>
                       )}
                       <Button
                         variant="destructive"

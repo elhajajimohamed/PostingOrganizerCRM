@@ -140,6 +140,18 @@ export interface Settings {
   scheduling?: EnhancedSchedulingConfig;
   // Browser configuration
   browsers?: string[];
+  // Phone detection configuration
+  phoneDetection?: PhoneDetectionConfig;
+}
+
+export interface PhoneDetectionConfig {
+  countryRules: {
+    [country: string]: {
+      cc: string;
+      prefixes: string[];
+      nsnLength: { min: number; max: number };
+    };
+  };
 }
 
 // Enhanced scheduling configuration

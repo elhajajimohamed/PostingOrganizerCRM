@@ -6,9 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Settings } from '@/lib/types';
+import { Settings, PhoneDetectionConfig } from '@/lib/types';
 import { SettingsService } from '@/lib/services/settings-service';
 import { useAuth } from '@/lib/auth-context';
+import { PhoneDetectionService, COUNTRY_RULES } from '@/lib/services/phone-detection-service';
+import { ExternalCRMService } from '@/lib/services/external-crm-service';
 
 interface SettingsFormProps {
   onSuccess?: () => void;
@@ -28,6 +30,10 @@ export function SettingsForm({ onSuccess }: SettingsFormProps) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [phoneDetectionConfig, setPhoneDetectionConfig] = useState<PhoneDetectionConfig>({
+    countryRules: COUNTRY_RULES || {}
+  });
+  const [migratingPhoneDetection, setMigratingPhoneDetection] = useState(false);
 
   // Load current settings
   useEffect(() => {
@@ -149,6 +155,43 @@ export function SettingsForm({ onSuccess }: SettingsFormProps) {
       setError(err.message || 'Failed to save browser settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleMigratePhoneDetection = async () => {
+    setMigratingPhoneDetection(true);
+    setError('');
+
+    try {
+      console.log('🔄 Starting phone detection migration...');
+
+      const response = await fetch('/api/external-crm/migrate-phone-detection', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Remove timeout for large migrations - let it run as long as needed
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        console.log('✅ Migration completed:', result.data);
+        alert(`✅ Phone detection migration completed!\n\nMigrated: ${result.data.migrated} call centers\nErrors: ${result.data.errors}`);
+        onSuccess?.();
+      } else {
+        throw new Error(result.error || 'Migration failed');
+      }
+    } catch (err: any) {
+      console.error('❌ Phone detection migration failed:', err);
+
+      if (err.name === 'TimeoutError' || err.message?.includes('timeout')) {
+        setError('Migration is taking longer than expected. Please check the browser console for progress updates.');
+      } else {
+        setError(err.message || 'Failed to migrate phone detection');
+      }
+    } finally {
+      setMigratingPhoneDetection(false);
     }
   };
 
@@ -466,6 +509,115 @@ export function SettingsForm({ onSuccess }: SettingsFormProps) {
             <div className="flex gap-4">
               <Button onClick={handleSaveBrowsers} disabled={saving} className="flex-1">
                 {saving ? 'Saving...' : 'Save Browser Settings'}
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Phone Detection Configuration</CardTitle>
+          <CardDescription>
+            Configure mobile number prefixes for each country to improve WhatsApp detection
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {Object.entries(phoneDetectionConfig.countryRules).map(([country, rules]) => (
+              <div key={country} className="border rounded-lg p-4">
+                <h4 className="font-medium mb-2">{country}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <Label>Country Code</Label>
+                    <Input
+                      value={rules.cc}
+                      onChange={(e) => setPhoneDetectionConfig(prev => ({
+                        ...prev,
+                        countryRules: {
+                          ...prev.countryRules,
+                          [country]: { ...rules, cc: e.target.value }
+                        }
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>Prefixes (comma-separated)</Label>
+                    <Input
+                      value={rules.prefixes.join(', ')}
+                      onChange={(e) => setPhoneDetectionConfig(prev => ({
+                        ...prev,
+                        countryRules: {
+                          ...prev.countryRules,
+                          [country]: { ...rules, prefixes: e.target.value.split(',').map(p => p.trim()).filter(p => p) }
+                        }
+                      }))}
+                    />
+                  </div>
+                  <div>
+                    <Label>NSN Length (min-max)</Label>
+                    <div className="flex space-x-2">
+                      <Input
+                        type="number"
+                        value={rules.nsnLength.min}
+                        onChange={(e) => setPhoneDetectionConfig(prev => ({
+                          ...prev,
+                          countryRules: {
+                            ...prev.countryRules,
+                            [country]: { ...rules, nsnLength: { ...rules.nsnLength, min: parseInt(e.target.value) || 0 } }
+                          }
+                        }))}
+                      />
+                      <Input
+                        type="number"
+                        value={rules.nsnLength.max}
+                        onChange={(e) => setPhoneDetectionConfig(prev => ({
+                          ...prev,
+                          countryRules: {
+                            ...prev.countryRules,
+                            [country]: { ...rules, nsnLength: { ...rules.nsnLength, max: parseInt(e.target.value) || 0 } }
+                          }
+                        }))}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <h4 className="font-medium mb-2 text-blue-900">Data Migration</h4>
+              <p className="text-blue-800 text-sm mb-3">
+                If you have existing call centers in your database that don't show WhatsApp buttons,
+                use the migration tool below to update them with phone detection data.
+              </p>
+            </div>
+
+            <div className="flex gap-4">
+              <Button onClick={() => {
+                // Save phone detection config
+                console.log('Saving phone detection config:', phoneDetectionConfig);
+                alert('Phone detection config saved (implement save logic)');
+              }}>
+                Save Phone Detection Settings
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleMigratePhoneDetection}
+                disabled={migratingPhoneDetection}
+                className="flex items-center space-x-2"
+              >
+                {migratingPhoneDetection ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-900"></div>
+                    <span>Migrating... (Check Console)</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🔄</span>
+                    <span>Migrate Existing Data</span>
+                  </>
+                )}
               </Button>
             </div>
           </div>

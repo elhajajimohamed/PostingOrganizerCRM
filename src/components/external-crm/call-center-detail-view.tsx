@@ -10,6 +10,7 @@ import { CallCenter } from '@/lib/types/external-crm';
 import { CallCenterForm } from './call-center-form';
 import { ContactManagement } from './contact-management';
 import { InteractionHistory } from './interaction-history';
+import { PhoneDetectionService } from '@/lib/services/phone-detection-service';
 import {
   Edit,
   Phone,
@@ -123,6 +124,16 @@ export function CallCenterDetailView({ callCenter, onUpdate, onEdit, onDelete }:
                 <div className="flex items-center text-sm">
                   <Phone className="w-4 h-4 mr-2 text-gray-400" />
                   <span>{callCenter.phones[0]}</span>
+                  {callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
+                    <a
+                      href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700 ml-2"
+                    >
+                      WhatsApp
+                    </a>
+                  )}
                 </div>
               )}
               {callCenter.email && (

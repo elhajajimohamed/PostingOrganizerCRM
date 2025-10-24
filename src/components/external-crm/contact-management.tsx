@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Contact } from '@/lib/types/external-crm';
 import { ExternalCRMSubcollectionsService, CrossSectionContactsService } from '@/lib/services/external-crm-service';
+import { PhoneDetectionService } from '@/lib/services/phone-detection-service';
 import { Plus, Edit, Trash2, Phone, Mail, User, Calendar } from 'lucide-react';
 
 interface ContactManagementProps {
@@ -293,9 +294,19 @@ export function ContactManagement({ callCenterId, callCenterName, showGlobalView
                       )}
                       <div className="flex items-center space-x-4 mt-1">
                         {contact.phone && (
-                          <div className="flex items-center text-sm text-gray-600">
+                          <div className="flex items-center space-x-2 text-sm text-gray-600">
                             <Phone className="w-4 h-4 mr-1" />
                             {contact.phone}
+                            {contact.phone_info && contact.phone_info.is_mobile && contact.phone_info.whatsapp_confidence >= 0.7 && (
+                              <a
+                                href={PhoneDetectionService.getWhatsAppLink(contact.phone)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                              >
+                                WhatsApp
+                              </a>
+                            )}
                           </div>
                         )}
                         {contact.email && (

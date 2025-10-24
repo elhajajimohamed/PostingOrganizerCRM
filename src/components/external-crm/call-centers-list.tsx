@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Textarea } from '@/components/ui/textarea';
 import { CallCenter } from '@/lib/types/external-crm';
 import { CallCenterDetailModal } from './call-center-detail-modal';
+import { PhoneDetectionService } from '@/lib/services/phone-detection-service';
 import {
   Building,
   MapPin,
@@ -1109,7 +1110,19 @@ ${index + 1}. ${cc.name}
 
                         <div>
                           {callCenter.phones.length > 0 && (
-                            <p className="text-sm font-medium">{callCenter.phones[0]}</p>
+                            <div className="flex items-center space-x-2">
+                              <p className="text-sm font-medium">{callCenter.phones[0]}</p>
+                              {callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
+                                <a
+                                  href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                                >
+                                  WhatsApp
+                                </a>
+                              )}
+                            </div>
                           )}
                           {callCenter.email && (
                             <p className="text-sm text-gray-600 truncate">{callCenter.email}</p>
@@ -1120,6 +1133,16 @@ ${index + 1}. ${cc.name}
                         </div>
 
                         <div className="flex items-center space-x-2">
+                          {callCenter.phones.length > 0 && callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
+                            <a
+                              href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                            >
+                              WhatsApp
+                            </a>
+                          )}
                           <Button variant="outline" size="sm" onClick={() => handleOpenCallLog(callCenter)}>
                             <Phone className="w-3 h-3 mr-1" />
                             Log Call
@@ -1189,9 +1212,21 @@ ${index + 1}. ${cc.name}
 
                         <div className="space-y-1">
                           {callCenter.phones.length > 0 && (
-                            <p className="text-sm">
-                              <span className="font-medium">📞</span> {callCenter.phones[0]}
-                            </p>
+                            <div className="flex items-center space-x-2">
+                              <p className="text-sm">
+                                <span className="font-medium">📞</span> {callCenter.phones[0]}
+                              </p>
+                              {callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
+                                <a
+                                  href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                                >
+                                  WhatsApp
+                                </a>
+                              )}
+                            </div>
                           )}
                           {callCenter.email && (
                             <p className="text-sm">
@@ -1221,6 +1256,16 @@ ${index + 1}. ${cc.name}
                         )}
 
                         <div className="flex space-x-2 pt-2">
+                          {callCenter.phones.length > 0 && callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
+                            <a
+                              href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                            >
+                              WhatsApp
+                            </a>
+                          )}
                           <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenCallLog(callCenter)}>
                             <Phone className="w-3 h-3 mr-1" />
                             Log Call
