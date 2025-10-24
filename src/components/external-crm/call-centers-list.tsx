@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -105,6 +105,19 @@ export function CallCentersList({
     steps: [] as Array<{ title: string; description: string; priority: string }>,
     stepDate: new Date().toISOString().split('T')[0],
   });
+
+  // Debounced search
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debouncedSearch = useCallback((searchTerm: string) => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+    searchTimeoutRef.current = setTimeout(() => {
+      if (onSearch) {
+        onSearch(searchTerm);
+      }
+    }, 300); // 300ms delay
+  }, [onSearch]);
 
   const handleCallCenterClick = (callCenter: CallCenter) => {
     setSelectedCallCenter(callCenter);
@@ -464,7 +477,8 @@ ${index + 1}. ${cc.name}
     hasMore,
     onLoadMore: !!onLoadMore,
     totalCount,
-    loading
+    loading,
+    searchTerm: filters.search
   });
 
   if (loading) {
@@ -505,10 +519,8 @@ ${index + 1}. ${cc.name}
               onChange={(e) => {
                 const newSearch = e.target.value;
                 setFilters(prev => ({ ...prev, search: newSearch }));
-                // Trigger search in parent component
-                if (onSearch) {
-                  onSearch(newSearch);
-                }
+                // Trigger debounced search in parent component
+                debouncedSearch(newSearch);
               }}
               className="pl-10"
             />

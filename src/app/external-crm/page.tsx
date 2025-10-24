@@ -103,7 +103,7 @@ export default function ExternalCRMPage() {
       return;
     }
 
-    loadCallCenters(true);
+    // Load suggestions and daily tasks, but call centers are loaded separately
     loadSuggestions();
     loadDailyTasks();
   }, [user?.uid, router]);
@@ -756,6 +756,11 @@ export default function ExternalCRMPage() {
     }
   };
 
+  // Load all call centers initially (without search)
+  useEffect(() => {
+    loadCallCenters(true);
+  }, []);
+
   const loadMoreCallCenters = async () => {
     if (hasMore && !loading) {
       const nextPage = currentPage + 1;
@@ -1057,7 +1062,13 @@ export default function ExternalCRMPage() {
                 onViewDuplicates={() => setActiveTab('duplicates')}
                 onSearch={(searchTerm) => {
                   console.log('🔍 Search triggered:', searchTerm);
-                  loadCallCenters(true, 1, searchTerm);
+                  if (searchTerm.trim()) {
+                    // When searching, load all records
+                    loadCallCenters(true, 1, searchTerm);
+                  } else {
+                    // When search is cleared, load first page normally
+                    loadCallCenters(true, 1);
+                  }
                 }}
               />
             </div>
