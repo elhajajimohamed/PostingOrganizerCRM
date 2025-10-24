@@ -1056,8 +1056,8 @@ ${index + 1}. ${cc.name}
                         onCheckedChange={(checked: boolean) => handleSelect(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id, checked)}
                       />
 
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
-                        <div className="md:col-span-2">
+                      <div className="flex-1 flex flex-col md:flex-row md:items-center gap-4">
+                        <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <button
                               className="font-semibold text-lg text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
@@ -1074,7 +1074,7 @@ ${index + 1}. ${cc.name}
                               </div>
                             )}
                           </div>
-                          <p className="text-sm text-gray-600 flex items-center">
+                          <p className="text-sm text-gray-600 flex items-center mt-1">
                             <MapPin className="w-4 h-4 mr-1" />
                             {callCenter.city}, {callCenter.country}
                           </p>
@@ -1094,53 +1094,81 @@ ${index + 1}. ${cc.name}
                           )}
                         </div>
 
-                        <div>
-                          <Badge className={`${STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]} mb-2`}>
-                            {callCenter.status}
-                          </Badge>
-                          <p className="text-sm text-gray-600">
-                            {callCenter.positions} positions
-                          </p>
-                          {callCenter.value && (
-                            <p className="text-sm font-medium text-green-600">
-                              ${callCenter.value.toLocaleString()} {callCenter.currency}
+                        <div className="grid grid-cols-4 gap-4 min-w-0">
+                          <div className="text-center flex flex-col items-center justify-center min-h-[60px]">
+                            <Badge className={`${STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]} mb-1`}>
+                              {callCenter.status}
+                            </Badge>
+                            <p className="text-sm text-gray-600">
+                              {callCenter.positions} positions
                             </p>
-                          )}
-                        </div>
+                            {callCenter.value && (
+                              <p className="text-sm font-medium text-green-600">
+                                ${callCenter.value.toLocaleString()} {callCenter.currency}
+                              </p>
+                            )}
+                          </div>
 
-                        <div>
-                          {callCenter.phones.length > 0 && (
-                            <p className="text-sm font-medium">{callCenter.phones[0]}</p>
-                          )}
-                          {callCenter.email && (
-                            <p className="text-sm text-gray-600 truncate">{callCenter.email}</p>
-                          )}
-                          {callCenter.website && (
-                            <p className="text-sm text-blue-600 truncate">{callCenter.website}</p>
-                          )}
-                        </div>
+                          <div className="text-center">
+                            {callCenter.phones.length > 0 && (
+                              <p className="text-sm font-medium">{callCenter.phones[0]}</p>
+                            )}
+                            {callCenter.email && (
+                              <p className="text-sm text-gray-600 truncate">{callCenter.email}</p>
+                            )}
+                            {callCenter.website && (
+                              <p className="text-sm text-blue-600 truncate">{callCenter.website}</p>
+                            )}
+                          </div>
 
-                        <div className="flex items-center space-x-2">
-                          {callCenter.phones.length > 0 && callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
-                            <a
-                              href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
-                            >
-                              WhatsApp
-                            </a>
-                          )}
-                          <Button variant="outline" size="sm" onClick={() => handleOpenCallLog(callCenter)}>
-                            <Phone className="w-3 h-3 mr-1" />
-                            Log Call
-                          </Button>
-                          <Button variant="outline" size="sm" onClick={() => onEdit(callCenter)}>
-                            Edit
-                          </Button>
-                          <Button variant="destructive" size="sm" onClick={() => onDelete(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}>
-                            Delete
-                          </Button>
+                          <div className="text-center">
+                            {callCenter.email && (
+                              <p className="text-sm text-gray-600 truncate">{callCenter.email}</p>
+                            )}
+                            {callCenter.website && (
+                              <p className="text-sm text-blue-600 truncate">{callCenter.website}</p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1 justify-center">
+                            {callCenter.phones.length > 0 && callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 ? (
+                              <Button
+                                asChild
+                                variant="outline"
+                                size="sm"
+                                className="bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700 text-xs px-2 py-1"
+                              >
+                                <a
+                                  href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Phone className="w-3 h-3 mr-1" />
+                                  WhatsApp
+                                </a>
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled
+                                className="text-gray-400 border-gray-300 text-xs px-2 py-1"
+                              >
+                                <Phone className="w-3 h-3 mr-1" />
+                                WhatsApp
+                              </Button>
+                            )}
+                            <Button variant="outline" size="sm" onClick={() => handleOpenCallLog(callCenter)} className="text-xs px-2 py-1">
+                              <Phone className="w-3 h-3 mr-1" />
+                              Log Call
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => onEdit(callCenter)} className="text-xs px-2 py-1">
+                              Edit
+                            </Button>
+                            <Button variant="destructive" size="sm" onClick={() => onDelete(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)} className="text-xs px-2 py-1">
+                              Delete
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
