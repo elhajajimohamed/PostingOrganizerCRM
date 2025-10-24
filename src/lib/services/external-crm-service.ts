@@ -70,7 +70,7 @@ export class ExternalCRMService {
       const q = query(collection(db, COLLECTION_NAMES.CALL_CENTERS), ...constraints);
       const querySnapshot = await getDocs(q);
 
-      const callCenters: CallCenter[] = querySnapshot.docs.map(doc => {
+      let callCenters: CallCenter[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
@@ -98,6 +98,20 @@ export class ExternalCRMService {
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
         } as CallCenter;
       });
+
+      // Apply client-side search filtering if search term is provided
+      if (filters?.search && filters.search.trim()) {
+        const searchTerm = filters.search.toLowerCase().trim();
+        callCenters = callCenters.filter(callCenter => {
+          return callCenter.name.toLowerCase().includes(searchTerm) ||
+                 callCenter.city.toLowerCase().includes(searchTerm) ||
+                 callCenter.country.toLowerCase().includes(searchTerm) ||
+                 callCenter.email?.toLowerCase().includes(searchTerm) ||
+                 callCenter.notes?.toLowerCase().includes(searchTerm) ||
+                 callCenter.tags?.some(tag => tag.toLowerCase().includes(searchTerm)) ||
+                 callCenter.phones?.some(phone => phone.includes(searchTerm));
+        });
+      }
 
       return callCenters;
     } catch (error) {

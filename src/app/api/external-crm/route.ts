@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
         min: searchParams.get('minPositions') ? parseInt(searchParams.get('minPositions')!) : undefined,
         max: searchParams.get('maxPositions') ? parseInt(searchParams.get('maxPositions')!) : undefined,
       },
+      search: searchParams.get('search') || undefined,
     };
 
     const sort = {

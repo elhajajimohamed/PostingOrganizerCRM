@@ -43,6 +43,7 @@ interface CallCentersListProps {
   onLoadMore?: () => void;
   totalCount?: number;
   onViewDuplicates?: () => void;
+  onSearch?: (searchTerm: string) => void;
 }
 
 const STATUS_COLORS = {
@@ -66,7 +67,8 @@ export function CallCentersList({
   hasMore = false,
   onLoadMore,
   totalCount = 0,
-  onViewDuplicates
+  onViewDuplicates,
+  onSearch
 }: CallCentersListProps) {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
@@ -500,7 +502,14 @@ ${index + 1}. ${cc.name}
             <Input
               placeholder="🔍 Global search: name, city, country, email, notes, tags, phones..."
               value={filters.search}
-              onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+              onChange={(e) => {
+                const newSearch = e.target.value;
+                setFilters(prev => ({ ...prev, search: newSearch }));
+                // Trigger search in parent component
+                if (onSearch) {
+                  onSearch(newSearch);
+                }
+              }}
               className="pl-10"
             />
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

@@ -692,7 +692,7 @@ export default function ExternalCRMPage() {
   const totalTasks = dailyTasks.length;
   const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  const loadCallCenters = async (reset: boolean = false, page: number = 1) => {
+  const loadCallCenters = async (reset: boolean = false, page: number = 1, searchTerm?: string) => {
     try {
       if (reset) {
         setLoading(true);
@@ -701,13 +701,19 @@ export default function ExternalCRMPage() {
         setHasMore(true);
       }
 
-      // Load call centers with pagination
+      // Load call centers with pagination and search
       const params = new URLSearchParams({
         page: page.toString(),
         limit: itemsPerPage.toString()
       });
 
-      console.log(`🔍 Loading call centers - Page: ${page}, Limit: ${itemsPerPage}, Reset: ${reset}`);
+      // If there's a search term, load all records for client-side filtering
+      if (searchTerm && searchTerm.trim()) {
+        params.set('all', 'true');
+        params.set('search', searchTerm.trim());
+      }
+
+      console.log(`🔍 Loading call centers - Page: ${page}, Limit: ${itemsPerPage}, Reset: ${reset}, Search: ${searchTerm || 'none'}`);
 
       const response = await fetch(`/api/external-crm?${params}`);
       if (response.ok) {
@@ -728,13 +734,15 @@ export default function ExternalCRMPage() {
           console.log(`➕ Appended: Now showing ${callCenters.length + newCallCenters.length} of ${total} total call centers`);
         }
 
-        // Check if there are more pages
-        const hasMorePages = (callCenters.length + newCallCenters.length) < total;
-        console.log(`🔍 DEBUG: callCenters.length=${callCenters.length}, newCallCenters.length=${newCallCenters.length}, total=${total}, hasMorePages=${hasMorePages}`);
+        // Check if there are more pages (only if not searching)
+        const hasMorePages = !searchTerm && (callCenters.length + newCallCenters.length) < total;
+        console.log(`🔍 DEBUG: callCenters.length=${callCenters.length}, newCallCenters.length=${newCallCenters.length}, total=${total}, hasMorePages=${hasMorePages}, searching=${!!searchTerm}`);
         setHasMore(hasMorePages);
 
         if (hasMorePages) {
           console.log(`📋 More pages available! Next page would load ${Math.min(itemsPerPage, total - (callCenters.length + newCallCenters.length))} more records`);
+        } else if (searchTerm) {
+          console.log(`🎉 All ${total} call centers loaded for search results!`);
         } else {
           console.log(`🎉 All ${total} call centers are now loaded!`);
         }
@@ -1047,6 +1055,10 @@ export default function ExternalCRMPage() {
                 onLoadMore={loadMoreCallCenters}
                 totalCount={totalCount}
                 onViewDuplicates={() => setActiveTab('duplicates')}
+                onSearch={(searchTerm) => {
+                  console.log('🔍 Search triggered:', searchTerm);
+                  loadCallCenters(true, 1, searchTerm);
+                }}
               />
             </div>
           </div>

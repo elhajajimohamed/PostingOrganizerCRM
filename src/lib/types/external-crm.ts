@@ -177,6 +177,7 @@ export interface BatchCallOperation {
 // Search and filter types
 export interface SearchFilters {
    query?: string;
+   search?: string;
    country?: 'Morocco' | 'Tunisia' | 'Senegal' | 'Ivory Coast' | 'Guinea' | 'Cameroon';
    city?: string;
    status?: 'New' | 'Contacted' | 'Qualified' | 'Proposal' | 'Negotiation' | 'Closed-Won' | 'Closed-Lost' | 'On-Hold';
