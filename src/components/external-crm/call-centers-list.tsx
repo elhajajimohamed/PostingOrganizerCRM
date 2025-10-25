@@ -76,6 +76,7 @@ export function CallCentersList({
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [bulkEditMode, setBulkEditMode] = useState(false);
   const [activeTab, setActiveTab] = useState('quick');
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [filters, setFilters] = useState({
     search: '',
     country: '',
@@ -491,143 +492,247 @@ ${index + 1}. ${cc.name}
   return (
     <div className="flex flex-col h-full">
       {/* Enhanced Search and Filters Header */}
-      <Card className="mb-4 flex-shrink-0">
-        <CardHeader>
+      <Card className="mb-6 flex-shrink-0 border-0 shadow-lg bg-gradient-to-r from-white to-gray-50">
+        <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <CardTitle>Advanced Search & Filters</CardTitle>
-            <div className="flex items-center space-x-2">
-              <Button
-                variant={viewMode === 'list' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-              >
-                List View
-              </Button>
-              <Button
-                variant={viewMode === 'card' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setViewMode('card')}
-              >
-                Card View
-              </Button>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                <Building className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Call Center Directory</CardTitle>
+                <p className="text-sm text-gray-600 mt-1">Search, filter, and manage your call centers</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center bg-white rounded-lg p-1 shadow-sm">
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="rounded-md"
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  List
+                </Button>
+                <Button
+                  variant={viewMode === 'card' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('card')}
+                  className="rounded-md"
+                >
+                  <Building className="w-4 h-4 mr-2" />
+                  Cards
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Global Search */}
-          <div className="relative">
-            <Input
-              placeholder="🔍 Global search: name, city, country, email, notes, tags, phones..."
-              value={filters.search}
-              onChange={(e) => {
-                const newSearch = e.target.value;
-                setFilters(prev => ({ ...prev, search: newSearch }));
-                // Trigger debounced search in parent component
-                debouncedSearch(newSearch);
-              }}
-              className="pl-10"
-            />
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <span className="text-gray-400">🔍</span>
+          <div className="relative mb-6">
+            <div className="relative">
+              <Input
+                placeholder="Search call centers by name, location, contact info, or tags..."
+                value={filters.search}
+                onChange={(e) => {
+                  const newSearch = e.target.value;
+                  setFilters(prev => ({ ...prev, search: newSearch }));
+                  // Trigger debounced search in parent component
+                  debouncedSearch(newSearch);
+                }}
+                className="pl-14 pr-28 h-14 text-lg border-3 border-blue-300 focus:border-blue-500 rounded-2xl shadow-lg bg-white focus:ring-4 focus:ring-blue-100 transition-all duration-200"
+              />
+              <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-md">
+                  <span className="text-white text-sm">🔍</span>
+                </div>
+              </div>
+              {isSearching && (
+                <div className="absolute inset-y-0 right-0 pr-5 flex items-center">
+                  <RefreshCw className="w-6 h-6 text-blue-500 animate-spin" />
+                </div>
+              )}
+              {filters.search && !isSearching && (
+                <div className="absolute inset-y-0 right-0 pr-5 flex items-center">
+                  <button
+                    onClick={() => {
+                      setFilters(prev => ({ ...prev, search: '' }));
+                      debouncedSearch('');
+                    }}
+                    className="w-6 h-6 text-gray-400 hover:text-gray-600 transition-colors mr-3 flex items-center justify-center hover:bg-gray-100 rounded-full"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              <div className="absolute inset-y-0 right-0 pr-20 flex items-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                  className="h-10 px-4 text-gray-600 hover:text-gray-900 hover:bg-blue-50 transition-colors rounded-xl font-medium"
+                >
+                  <span className="text-sm mr-2">Filters</span>
+                  {showAdvancedFilters ? '▲' : '▼'}
+                </Button>
+              </div>
+            </div>
+
+            {/* Search hint */}
+            <div className="text-center mt-3">
+              <p className="text-sm text-gray-500">
+                💡 <span className="font-medium">Pro tip:</span> Use keywords like "Morocco", "Casablanca", or specific company names
+              </p>
             </div>
           </div>
 
-          {/* Primary Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Select value={filters.country} onValueChange={(value) => setFilters(prev => ({ ...prev, country: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Countries" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Countries</SelectItem>
-                {uniqueCountries.map(country => (
-                  <SelectItem key={country} value={country}>{country}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* Advanced Filters - Collapsible */}
+          {showAdvancedFilters && (
+            <div className="space-y-4 border-t border-gray-200 pt-6 animate-in slide-in-from-top-2 duration-300">
+              {/* Primary Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="relative">
+                  <Select value={filters.country} onValueChange={(value) => setFilters(prev => ({ ...prev, country: value }))}>
+                    <SelectTrigger className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg">
+                      <SelectValue placeholder="🌍 All Countries" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">🌍 All Countries</SelectItem>
+                      {uniqueCountries.map(country => (
+                        <SelectItem key={country} value={country}>📍 {country}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <Select value={filters.city} onValueChange={(value) => setFilters(prev => ({ ...prev, city: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Cities" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Cities</SelectItem>
-                {uniqueCities.map(city => (
-                  <SelectItem key={city} value={city}>{city}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <div className="relative">
+                  <Select value={filters.city} onValueChange={(value) => setFilters(prev => ({ ...prev, city: value }))}>
+                    <SelectTrigger className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg">
+                      <SelectValue placeholder="🏙️ All Cities" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">🏙️ All Cities</SelectItem>
+                      {uniqueCities.map(city => (
+                        <SelectItem key={city} value={city}>🏢 {city}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
-              <SelectTrigger>
-                <SelectValue placeholder="All Statuses" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="New">New</SelectItem>
-                <SelectItem value="Contacted">Contacted</SelectItem>
-                <SelectItem value="Qualified">Qualified</SelectItem>
-                <SelectItem value="Proposal">Proposal</SelectItem>
-                <SelectItem value="Negotiation">Negotiation</SelectItem>
-                <SelectItem value="Closed-Won">Closed-Won</SelectItem>
-                <SelectItem value="Closed-Lost">Closed-Lost</SelectItem>
-                <SelectItem value="On-Hold">On-Hold</SelectItem>
-              </SelectContent>
-            </Select>
+                <div className="relative">
+                  <Select value={filters.status} onValueChange={(value) => setFilters(prev => ({ ...prev, status: value }))}>
+                    <SelectTrigger className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg">
+                      <SelectValue placeholder="📊 All Statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">📊 All Statuses</SelectItem>
+                      <SelectItem value="New">🆕 New</SelectItem>
+                      <SelectItem value="Contacted">📞 Contacted</SelectItem>
+                      <SelectItem value="Qualified">✅ Qualified</SelectItem>
+                      <SelectItem value="Proposal">📋 Proposal</SelectItem>
+                      <SelectItem value="Negotiation">🤝 Negotiation</SelectItem>
+                      <SelectItem value="Closed-Won">🎉 Closed-Won</SelectItem>
+                      <SelectItem value="Closed-Lost">❌ Closed-Lost</SelectItem>
+                      <SelectItem value="On-Hold">⏸️ On-Hold</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-            <Input
-              placeholder="Filter by tags..."
-              value={filters.tags}
-              onChange={(e) => setFilters(prev => ({ ...prev, tags: e.target.value }))}
-            />
-          </div>
+                <div className="relative">
+                  <Input
+                    placeholder="🏷️ Filter by tags..."
+                    value={filters.tags}
+                    onChange={(e) => setFilters(prev => ({ ...prev, tags: e.target.value }))}
+                    className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg"
+                  />
+                </div>
+              </div>
 
-          {/* Advanced Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Input
-              placeholder="Min positions"
-              type="number"
-              value={filters.minPositions}
-              onChange={(e) => setFilters(prev => ({ ...prev, minPositions: e.target.value }))}
-            />
-            <Input
-              placeholder="Max positions"
-              type="number"
-              value={filters.maxPositions}
-              onChange={(e) => setFilters(prev => ({ ...prev, maxPositions: e.target.value }))}
-            />
-            <Input
-              placeholder="Min value ($)"
-              type="number"
-              value={filters.minValue}
-              onChange={(e) => setFilters(prev => ({ ...prev, minValue: e.target.value }))}
-            />
-            <Input
-              placeholder="Max value ($)"
-              type="number"
-              value={filters.maxValue}
-              onChange={(e) => setFilters(prev => ({ ...prev, maxValue: e.target.value }))}
-            />
-          </div>
+              {/* Advanced Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="relative">
+                  <Input
+                    placeholder="👥 Min positions"
+                    type="number"
+                    value={filters.minPositions}
+                    onChange={(e) => setFilters(prev => ({ ...prev, minPositions: e.target.value }))}
+                    className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg pl-10"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-400 text-sm">👥</span>
+                  </div>
+                </div>
+                <div className="relative">
+                  <Input
+                    placeholder="👥 Max positions"
+                    type="number"
+                    value={filters.maxPositions}
+                    onChange={(e) => setFilters(prev => ({ ...prev, maxPositions: e.target.value }))}
+                    className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg pl-10"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-400 text-sm">👥</span>
+                  </div>
+                </div>
+                <div className="relative">
+                  <Input
+                    placeholder="💰 Min value ($)"
+                    type="number"
+                    value={filters.minValue}
+                    onChange={(e) => setFilters(prev => ({ ...prev, minValue: e.target.value }))}
+                    className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg pl-10"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-400 text-sm">💰</span>
+                  </div>
+                </div>
+                <div className="relative">
+                  <Input
+                    placeholder="💰 Max value ($)"
+                    type="number"
+                    value={filters.maxValue}
+                    onChange={(e) => setFilters(prev => ({ ...prev, maxValue: e.target.value }))}
+                    className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg pl-10"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-400 text-sm">💰</span>
+                  </div>
+                </div>
+              </div>
 
-          {/* Date Range Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              placeholder="Created from date"
-              type="date"
-              value={filters.dateFrom}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
-            />
-            <Input
-              placeholder="Created to date"
-              type="date"
-              value={filters.dateTo}
-              onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
-            />
-          </div>
+              {/* Date Range Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="relative">
+                  <Input
+                    placeholder="📅 Created from date"
+                    type="date"
+                    value={filters.dateFrom}
+                    onChange={(e) => setFilters(prev => ({ ...prev, dateFrom: e.target.value }))}
+                    className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg pl-10"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-400 text-sm">📅</span>
+                  </div>
+                </div>
+                <div className="relative">
+                  <Input
+                    placeholder="📅 Created to date"
+                    type="date"
+                    value={filters.dateTo}
+                    onChange={(e) => setFilters(prev => ({ ...prev, dateTo: e.target.value }))}
+                    className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg pl-10"
+                  />
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-400 text-sm">📅</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Filter Actions */}
-          <div className="flex items-center justify-between pt-4 border-t">
+          <div className="flex items-center justify-between pt-6 border-t border-gray-200">
             <div className="flex items-center space-x-4">
               <Button
                 variant="outline"
@@ -645,19 +750,30 @@ ${index + 1}. ${cc.name}
                   dateFrom: '',
                   dateTo: ''
                 })}
+                className="flex items-center gap-2 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-colors"
               >
+                <RefreshCw className="w-4 h-4" />
                 Clear All Filters
               </Button>
-              <span className="text-sm text-gray-600">
-                Showing {filteredCallCenters.length} of {callCenters.length} call centers
-              </span>
+              <div className="flex items-center gap-2 text-sm text-gray-600 bg-gray-50 px-3 py-2 rounded-lg">
+                <span className="font-medium text-gray-900">{filteredCallCenters.length}</span>
+                <span>of</span>
+                <span className="font-medium text-gray-900">{callCenters.length}</span>
+                <span>call centers</span>
+              </div>
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="flex items-center gap-4">
               {filteredCallCenters.length > 0 && (
-                <span>
-                  Results: {filteredCallCenters.length} call center{filteredCallCenters.length !== 1 ? 's' : ''}
-                </span>
+                <div className="text-sm text-gray-500 bg-blue-50 px-3 py-2 rounded-lg">
+                  <span className="font-medium text-blue-700">
+                    {filteredCallCenters.length} result{filteredCallCenters.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
               )}
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs text-gray-500">Live data</span>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -1000,301 +1116,386 @@ ${index + 1}. ${cc.name}
               </div>
             </div>
           ) : sortedCallCenters.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
-                <Building className="w-16 h-16 mx-auto" />
+            <div className="text-center py-16">
+              <div className="relative mb-6">
+                <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
+                  <Building className="w-12 h-12 text-blue-600" />
+                </div>
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center animate-pulse">
+                  <span className="text-white text-sm">🔍</span>
+                </div>
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No call centers found</h3>
-              <p className="text-gray-500 mb-4">
+              <h3 className="text-2xl font-bold text-gray-900 mb-3">No call centers found</h3>
+              <p className="text-gray-600 mb-6 max-w-md mx-auto leading-relaxed">
                 {callCenters.length === 0
-                  ? "Get started by adding your first call center or importing data."
-                  : "Try adjusting your search criteria or filters."
+                  ? "Start building your call center database by adding your first entry or importing existing data."
+                  : "We couldn't find any call centers matching your current search criteria. Try adjusting your filters or search terms."
                 }
               </p>
-              {Object.keys(filters).some(key => filters[key as keyof typeof filters]) && (
-                <Button
-                  variant="outline"
-                  onClick={() => setFilters({
-                    search: '',
-                    country: '',
-                    city: '',
-                    status: '',
-                    minPositions: '',
-                    maxPositions: '',
-                    tags: '',
-                    minValue: '',
-                    maxValue: '',
-                    dateFrom: '',
-                    dateTo: ''
-                  })}
-                >
-                  Clear Filters
-                </Button>
-              )}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                {Object.keys(filters).some(key => filters[key as keyof typeof filters]) && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setFilters({
+                      search: '',
+                      country: '',
+                      city: '',
+                      status: '',
+                      minPositions: '',
+                      maxPositions: '',
+                      tags: '',
+                      minValue: '',
+                      maxValue: '',
+                      dateFrom: '',
+                      dateTo: ''
+                    })}
+                    className="flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    Clear Filters
+                  </Button>
+                )}
+                {callCenters.length === 0 && (
+                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add First Call Center
+                  </Button>
+                )}
+              </div>
             </div>
           ) : (
             <>
               {/* Header with select all */}
-              <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg mb-4">
-                <Checkbox
-                  checked={selectedIds.length === sortedCallCenters.length && sortedCallCenters.length > 0}
-                  onCheckedChange={handleSelectAll}
-                />
-                <span className="font-medium">Select All Visible</span>
-                <span className="text-sm text-gray-600">
-                  ({selectedIds.length} selected)
-                </span>
+              <div className="flex items-center justify-between p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl mb-6 border border-blue-100">
+                <div className="flex items-center space-x-4">
+                  <Checkbox
+                    checked={selectedIds.length === sortedCallCenters.length && sortedCallCenters.length > 0}
+                    onCheckedChange={handleSelectAll}
+                    className="border-blue-300"
+                  />
+                  <div>
+                    <span className="font-semibold text-gray-900">Select All Visible</span>
+                    <span className="text-sm text-gray-600 ml-2">
+                      ({selectedIds.length} selected)
+                    </span>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-500">
+                  {sortedCallCenters.length} call centers displayed
+                </div>
               </div>
 
               {/* Call Center Items */}
               {viewMode === 'list' ? (
-                <div className="space-y-3">
+                <div className="space-y-4">
                    {sortedCallCenters.map((callCenter, index) => (
-                     <div key={`${callCenter.id}-${index}`} className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-gray-50 transition-colors">
-                      <Checkbox
-                        checked={selectedIds.includes(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}
-                        onCheckedChange={(checked: boolean) => handleSelect(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id, checked)}
-                      />
+                     <Card key={`${callCenter.id}-${index}`} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500">
+                       <CardContent className="p-6">
+                         <div className="flex items-start justify-between">
+                           <div className="flex-1 min-w-0">
+                             {/* Header Section */}
+                             <div className="flex items-start justify-between mb-3">
+                               <div className="flex-1 min-w-0">
+                                 <div className="flex items-center gap-3 mb-2">
+                                   <Checkbox
+                                     checked={selectedIds.includes(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}
+                                     onCheckedChange={(checked: boolean) => handleSelect(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id, checked)}
+                                   />
+                                   <button
+                                     className="text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer truncate"
+                                     onClick={() => handleCallCenterClick(callCenter)}
+                                   >
+                                     {callCenter.name}
+                                   </button>
+                                   {potentialDuplicates[callCenter.id] && potentialDuplicates[callCenter.id].length > 0 && (
+                                     <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200">
+                                       <AlertTriangle className="w-3 h-3 mr-1" />
+                                       {potentialDuplicates[callCenter.id].length} duplicate{potentialDuplicates[callCenter.id].length !== 1 ? 's' : ''}
+                                     </Badge>
+                                   )}
+                                 </div>
 
-                      <div className="flex-1 flex flex-col md:flex-row md:items-center gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <button
-                              className="font-semibold text-lg text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-                              onClick={() => handleCallCenterClick(callCenter)}
-                            >
-                              {callCenter.name}
-                            </button>
-                            {potentialDuplicates[callCenter.id] && potentialDuplicates[callCenter.id].length > 0 && (
-                              <div className="flex items-center gap-1">
-                                <AlertTriangle className="w-4 h-4 text-orange-500" />
-                                <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                                  {potentialDuplicates[callCenter.id].length} duplicate{potentialDuplicates[callCenter.id].length !== 1 ? 's' : ''}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600 flex items-center mt-1">
-                            <MapPin className="w-4 h-4 mr-1" />
-                            {callCenter.city}, {callCenter.country}
-                          </p>
-                          {callCenter.tags && callCenter.tags.length > 0 && (
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {callCenter.tags.slice(0, 3).map(tag => (
-                                <Badge key={tag} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                              {callCenter.tags.length > 3 && (
-                                <Badge variant="outline" className="text-xs">
-                                  +{callCenter.tags.length - 3}
-                                </Badge>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                                 {/* Location */}
+                                 <div className="flex items-center text-gray-600 mb-3">
+                                   <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                                   <span className="text-sm">{callCenter.city}, {callCenter.country}</span>
+                                 </div>
+                               </div>
 
-                        <div className="grid grid-cols-4 gap-4 min-w-0">
-                          <div className="text-center flex flex-col items-center justify-center min-h-[60px]">
-                            <Badge className={`${STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]} mb-1`}>
-                              {callCenter.status}
-                            </Badge>
-                            <p className="text-sm text-gray-600">
-                              {callCenter.positions} positions
-                            </p>
-                            {callCenter.value && (
-                              <p className="text-sm font-medium text-green-600">
-                                ${callCenter.value.toLocaleString()} {callCenter.currency}
-                              </p>
-                            )}
-                          </div>
+                               {/* Status Badge */}
+                               <Badge className={`${STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]} text-xs px-3 py-1`}>
+                                 {callCenter.status}
+                               </Badge>
+                             </div>
 
-                          <div className="text-center">
-                            {callCenter.phones.length > 0 && (
-                              <p className="text-sm font-medium">{callCenter.phones[0]}</p>
-                            )}
-                            {callCenter.email && (
-                              <p className="text-sm text-gray-600 truncate">{callCenter.email}</p>
-                            )}
-                            {callCenter.website && (
-                              <p className="text-sm text-blue-600 truncate">{callCenter.website}</p>
-                            )}
-                          </div>
+                             {/* Main Content Grid */}
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-4">
+                               {/* Key Metrics */}
+                               <div className="space-y-2">
+                                 <div className="flex items-center justify-between">
+                                   <span className="text-sm font-medium text-gray-700">Positions</span>
+                                   <span className="text-lg font-bold text-gray-900">{callCenter.positions}</span>
+                                 </div>
+                                 {callCenter.value && (
+                                   <div className="flex items-center justify-between">
+                                     <span className="text-sm font-medium text-gray-700">Value</span>
+                                     <span className="text-lg font-bold text-green-600">
+                                       ${callCenter.value.toLocaleString()} {callCenter.currency}
+                                     </span>
+                                   </div>
+                                 )}
+                               </div>
 
-                          <div className="text-center">
-                            {callCenter.email && (
-                              <p className="text-sm text-gray-600 truncate">{callCenter.email}</p>
-                            )}
-                            {callCenter.website && (
-                              <p className="text-sm text-blue-600 truncate">{callCenter.website}</p>
-                            )}
-                          </div>
+                               {/* Contact Information */}
+                               <div className="space-y-2">
+                                 {callCenter.phones.length > 0 && (
+                                   <div>
+                                     <span className="text-sm font-medium text-gray-700 block mb-1">Phone</span>
+                                     <p className="text-sm font-mono text-gray-900">{callCenter.phones[0]}</p>
+                                   </div>
+                                 )}
+                                 {callCenter.email && (
+                                   <div>
+                                     <span className="text-sm font-medium text-gray-700 block mb-1">Email</span>
+                                     <p className="text-sm text-blue-600 truncate">{callCenter.email}</p>
+                                   </div>
+                                 )}
+                               </div>
 
-                          <div className="flex items-center gap-1 justify-center">
-                            {callCenter.phones.length > 0 && callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 ? (
-                              <Button
-                                asChild
-                                variant="outline"
-                                size="sm"
-                                className="bg-green-600 hover:bg-green-700 text-white border-green-600 hover:border-green-700 text-xs px-2 py-1"
-                              >
-                                <a
-                                  href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                >
-                                  <Phone className="w-3 h-3 mr-1" />
-                                  WhatsApp
-                                </a>
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled
-                                className="text-gray-400 border-gray-300 text-xs px-2 py-1"
-                              >
-                                <Phone className="w-3 h-3 mr-1" />
-                                WhatsApp
-                              </Button>
-                            )}
-                            <Button variant="outline" size="sm" onClick={() => handleOpenCallLog(callCenter)} className="text-xs px-2 py-1">
-                              <Phone className="w-3 h-3 mr-1" />
-                              Log Call
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={() => onEdit(callCenter)} className="text-xs px-2 py-1">
-                              Edit
-                            </Button>
-                            <Button variant="destructive" size="sm" onClick={() => onDelete(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)} className="text-xs px-2 py-1">
-                              Delete
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                               {/* Website */}
+                               <div className="space-y-2">
+                                 {callCenter.website && (
+                                   <div>
+                                     <span className="text-sm font-medium text-gray-700 block mb-1">Website</span>
+                                     <a
+                                       href={callCenter.website}
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                       className="text-sm text-blue-600 hover:text-blue-800 hover:underline truncate block"
+                                     >
+                                       {callCenter.website}
+                                     </a>
+                                   </div>
+                                 )}
+                               </div>
+                             </div>
+
+                             {/* Tags */}
+                             {callCenter.tags && callCenter.tags.length > 0 && (
+                               <div className="flex flex-wrap gap-2 mb-4">
+                                 {callCenter.tags.slice(0, 4).map(tag => (
+                                   <Badge key={tag} variant="secondary" className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100">
+                                     {tag}
+                                   </Badge>
+                                 ))}
+                                 {callCenter.tags.length > 4 && (
+                                   <Badge variant="secondary" className="text-xs bg-gray-50 text-gray-600">
+                                     +{callCenter.tags.length - 4} more
+                                   </Badge>
+                                 )}
+                               </div>
+                             )}
+
+                             {/* Action Buttons */}
+                             <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                               <div className="flex items-center gap-2">
+                                 {callCenter.phones.length > 0 && callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 ? (
+                                   <Button
+                                     asChild
+                                     size="sm"
+                                     className="bg-green-600 hover:bg-green-700 text-white"
+                                   >
+                                     <a
+                                       href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
+                                       target="_blank"
+                                       rel="noopener noreferrer"
+                                     >
+                                       <Phone className="w-4 h-4 mr-2" />
+                                       WhatsApp
+                                     </a>
+                                   </Button>
+                                 ) : (
+                                   <Button
+                                     variant="outline"
+                                     size="sm"
+                                     disabled
+                                     className="text-gray-400"
+                                   >
+                                     <Phone className="w-4 h-4 mr-2" />
+                                     WhatsApp
+                                   </Button>
+                                 )}
+                                 <Button variant="outline" size="sm" onClick={() => handleOpenCallLog(callCenter)}>
+                                   <Phone className="w-4 h-4 mr-2" />
+                                   Log Call
+                                 </Button>
+                               </div>
+
+                               <div className="flex items-center gap-2">
+                                 <Button variant="ghost" size="sm" onClick={() => onEdit(callCenter)} className="text-gray-600 hover:text-gray-900">
+                                   <Edit className="w-4 h-4 mr-2" />
+                                   Edit
+                                 </Button>
+                                 <Button
+                                   variant="ghost"
+                                   size="sm"
+                                   onClick={() => onDelete(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}
+                                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                 >
+                                   <Trash2 className="w-4 h-4" />
+                                 </Button>
+                               </div>
+                             </div>
+                           </div>
+                         </div>
+                       </CardContent>
+                     </Card>
                   ))}
                 </div>
               ) : (
                 /* Card View */
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                    {sortedCallCenters.map((callCenter, index) => (
-                     <Card key={`${callCenter.id}-${index}`} className="hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <button
-                                className="text-lg line-clamp-1 text-left text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
-                                onClick={() => handleCallCenterClick(callCenter)}
-                              >
-                                {callCenter.name}
-                              </button>
-                              {potentialDuplicates[callCenter.id] && potentialDuplicates[callCenter.id].length > 0 && (
-                                <div className="flex items-center gap-1">
-                                  <AlertTriangle className="w-4 h-4 text-orange-500" />
-                                  <span className="text-xs text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                                    {potentialDuplicates[callCenter.id].length}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                            <p className="text-sm text-gray-600 flex items-center mt-1">
-                              <MapPin className="w-4 h-4 mr-1" />
-                              {callCenter.city}, {callCenter.country}
-                            </p>
-                          </div>
-                          <Checkbox
-                            checked={selectedIds.includes(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}
-                            onCheckedChange={(checked: boolean) => handleSelect(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id, checked)}
-                          />
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Badge className={STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]}>
-                            {callCenter.status}
-                          </Badge>
-                          <span className="text-sm font-medium">{callCenter.positions} positions</span>
-                        </div>
+                     <Card key={`${callCenter.id}-${index}`} className="hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white">
+                       <CardContent className="p-6">
+                         {/* Header with checkbox and status */}
+                         <div className="flex items-start justify-between mb-4">
+                           <Checkbox
+                             checked={selectedIds.includes(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}
+                             onCheckedChange={(checked: boolean) => handleSelect(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id, checked)}
+                             className="mt-1"
+                           />
+                           <Badge className={`${STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]} text-xs px-3 py-1 ml-auto`}>
+                             {callCenter.status}
+                           </Badge>
+                         </div>
 
-                        {callCenter.value && (
-                          <div className="flex items-center justify-between p-2 bg-green-50 rounded">
-                            <span className="text-sm text-green-700">Value:</span>
-                            <span className="font-semibold text-green-800">
-                              ${callCenter.value.toLocaleString()} {callCenter.currency}
-                            </span>
-                          </div>
-                        )}
+                         {/* Company Name */}
+                         <div className="mb-4">
+                           <button
+                             className="text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer text-left w-full"
+                             onClick={() => handleCallCenterClick(callCenter)}
+                           >
+                             {callCenter.name}
+                           </button>
+                           {potentialDuplicates[callCenter.id] && potentialDuplicates[callCenter.id].length > 0 && (
+                             <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200 mt-2">
+                               <AlertTriangle className="w-3 h-3 mr-1" />
+                               {potentialDuplicates[callCenter.id].length} duplicate{potentialDuplicates[callCenter.id].length !== 1 ? 's' : ''}
+                             </Badge>
+                           )}
+                         </div>
 
-                        <div className="space-y-1">
-                          {callCenter.phones.length > 0 && (
-                            <div className="flex items-center space-x-2">
-                              <p className="text-sm">
-                                <span className="font-medium">📞</span> {callCenter.phones[0]}
-                              </p>
-                              {callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
-                                <a
-                                  href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
-                                >
-                                  WhatsApp
-                                </a>
-                              )}
-                            </div>
-                          )}
-                          {callCenter.email && (
-                            <p className="text-sm">
-                              <span className="font-medium">✉️</span> {callCenter.email}
-                            </p>
-                          )}
-                          {callCenter.website && (
-                            <p className="text-sm">
-                              <span className="font-medium">🌐</span> {callCenter.website}
-                            </p>
-                          )}
-                        </div>
+                         {/* Location */}
+                         <div className="flex items-center text-gray-600 mb-4">
+                           <MapPin className="w-4 h-4 mr-2 text-gray-400" />
+                           <span className="text-sm">{callCenter.city}, {callCenter.country}</span>
+                         </div>
 
-                        {callCenter.tags && callCenter.tags.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {callCenter.tags.slice(0, 2).map(tag => (
-                              <Badge key={tag} variant="outline" className="text-xs">
-                                {tag}
-                              </Badge>
-                            ))}
-                            {callCenter.tags.length > 2 && (
-                              <Badge variant="outline" className="text-xs">
-                                +{callCenter.tags.length - 2}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
+                         {/* Key Metrics */}
+                         <div className="grid grid-cols-2 gap-4 mb-4">
+                           <div className="text-center p-3 bg-gray-50 rounded-lg">
+                             <div className="text-2xl font-bold text-gray-900">{callCenter.positions}</div>
+                             <div className="text-xs text-gray-600 uppercase tracking-wide">Positions</div>
+                           </div>
+                           {callCenter.value && (
+                             <div className="text-center p-3 bg-green-50 rounded-lg">
+                               <div className="text-lg font-bold text-green-600">
+                                 ${callCenter.value.toLocaleString()}
+                               </div>
+                               <div className="text-xs text-green-700 uppercase tracking-wide">
+                                 {callCenter.currency}
+                               </div>
+                             </div>
+                           )}
+                         </div>
 
-                        <div className="flex space-x-2 pt-2">
-                          {callCenter.phones.length > 0 && callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
-                            <a
-                              href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
-                            >
-                              WhatsApp
-                            </a>
-                          )}
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenCallLog(callCenter)}>
-                            <Phone className="w-3 h-3 mr-1" />
-                            Log Call
-                          </Button>
-                          <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(callCenter)}>
-                            Edit
-                          </Button>
-                          <Button variant="destructive" size="sm" className="flex-1" onClick={() => onDelete(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}>
-                            Delete
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
+                         {/* Contact Information */}
+                         <div className="space-y-3 mb-4">
+                           {callCenter.phones.length > 0 && (
+                             <div className="flex items-center justify-between">
+                               <div>
+                                 <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Phone</div>
+                                 <div className="text-sm font-mono text-gray-900">{callCenter.phones[0]}</div>
+                               </div>
+                               {callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
+                                 <Button
+                                   asChild
+                                   size="sm"
+                                   className="bg-green-600 hover:bg-green-700 text-white"
+                                 >
+                                   <a
+                                     href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
+                                     target="_blank"
+                                     rel="noopener noreferrer"
+                                   >
+                                     <Phone className="w-4 h-4 mr-2" />
+                                     WhatsApp
+                                   </a>
+                                 </Button>
+                               )}
+                             </div>
+                           )}
+
+                           {callCenter.email && (
+                             <div>
+                               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Email</div>
+                               <div className="text-sm text-blue-600 truncate">{callCenter.email}</div>
+                             </div>
+                           )}
+
+                           {callCenter.website && (
+                             <div>
+                               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Website</div>
+                               <a
+                                 href={callCenter.website}
+                                 target="_blank"
+                                 rel="noopener noreferrer"
+                                 className="text-sm text-blue-600 hover:text-blue-800 hover:underline truncate block"
+                               >
+                                 {callCenter.website}
+                               </a>
+                             </div>
+                           )}
+                         </div>
+
+                         {/* Tags */}
+                         {callCenter.tags && callCenter.tags.length > 0 && (
+                           <div className="flex flex-wrap gap-2 mb-4">
+                             {callCenter.tags.slice(0, 3).map(tag => (
+                               <Badge key={tag} variant="secondary" className="text-xs bg-blue-50 text-blue-700 hover:bg-blue-100">
+                                 {tag}
+                               </Badge>
+                             ))}
+                             {callCenter.tags.length > 3 && (
+                               <Badge variant="secondary" className="text-xs bg-gray-50 text-gray-600">
+                                 +{callCenter.tags.length - 3}
+                               </Badge>
+                             )}
+                           </div>
+                         )}
+
+                         {/* Action Buttons */}
+                         <div className="flex gap-2 pt-4 border-t border-gray-100">
+                           <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenCallLog(callCenter)}>
+                             <Phone className="w-4 h-4 mr-2" />
+                             Log Call
+                           </Button>
+                           <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(callCenter)}>
+                             <Edit className="w-4 h-4 mr-2" />
+                             Edit
+                           </Button>
+                           <Button
+                             variant="outline"
+                             size="sm"
+                             onClick={() => onDelete(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}
+                             className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                           >
+                             <Trash2 className="w-4 h-4" />
+                           </Button>
+                         </div>
+                       </CardContent>
+                     </Card>
                   ))}
                 </div>
               )}
@@ -1303,20 +1504,23 @@ ${index + 1}. ${cc.name}
 
           {/* Load More Button */}
           {hasMore && onLoadMore && (
-            <div className="flex justify-center mt-6">
+            <div className="flex justify-center mt-8">
               <Button
                 onClick={onLoadMore}
                 disabled={isSearching}
-                className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-medium rounded-lg shadow-lg hover:shadow-xl transition-all duration-200"
+                className="px-10 py-4 bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 hover:from-blue-700 hover:via-purple-700 hover:to-indigo-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105"
               >
                 {isSearching ? (
                   <>
-                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                    Searching...
+                    <RefreshCw className="w-5 h-5 mr-3 animate-spin" />
+                    Loading...
                   </>
                 ) : (
                   <>
-                    Load More Call Centers ({callCenters.length} of {totalCount})
+                    Load More Call Centers
+                    <span className="ml-2 px-2 py-1 bg-white/20 rounded-full text-sm">
+                      {callCenters.length} of {totalCount}
+                    </span>
                   </>
                 )}
               </Button>
@@ -1325,10 +1529,16 @@ ${index + 1}. ${cc.name}
 
           {/* Show message when all records are loaded */}
           {!hasMore && totalCount > 20 && (
-            <div className="text-center mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-green-800 font-medium">
-                ✅ All {totalCount} call centers are loaded!
-              </p>
+            <div className="text-center mt-6 p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200 shadow-sm">
+              <div className="text-green-800">
+                <div className="text-2xl mb-2">🎉</div>
+                <p className="text-lg font-semibold">
+                  All {totalCount} call centers loaded!
+                </p>
+                <p className="text-sm text-green-700 mt-1">
+                  You've reached the end of the list
+                </p>
+              </div>
             </div>
           )}
           </div>
