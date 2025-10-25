@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ModernTabsNavigation } from '@/components/ui/modern-tabs-navigation';
-import { Building2, Plus, Circle, CheckCircle } from 'lucide-react';
+import { Building2, Plus, Circle, CheckCircle, Search } from 'lucide-react';
 import { CallCenterForm } from '@/components/external-crm/call-center-form';
 import { CallCentersList } from '@/components/external-crm/call-centers-list';
 import { CallCentersDashboard } from '@/components/external-crm/call-centers-dashboard';
@@ -25,6 +25,7 @@ import { DuplicatesManagement } from '@/components/external-crm/duplicates-manag
 import { DailyCallsDashboard } from '@/components/external-crm/daily-calls-dashboard';
 import { CalendarDashboard } from '@/components/external-crm/calendar-dashboard';
 import { TasksList } from '@/components/tasks/tasks-list';
+import { LeadGenerationForm } from '@/components/external-crm/lead-generation-form';
 import { CallCenter, Suggestion } from '@/lib/types/external-crm';
 import { useAuth } from '@/lib/auth-context';
 import { TaskService } from '@/lib/services/task-service';
@@ -1414,6 +1415,52 @@ export default function ExternalCRMPage() {
               onDelete={handleDeleteSuggestion}
               loading={loading}
             />
+          </div>
+        );
+
+      case 'lead-finder':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Lead Finder</h2>
+                  <p className="text-gray-600">Search Google Business for potential leads and add them to your CRM</p>
+                </div>
+              </div>
+
+              {/* Import the Google Lead Finder component */}
+              <div className="mt-6">
+                <iframe
+                  src="/leads/google"
+                  className="w-full h-[800px] border-0 rounded-lg"
+                  title="Lead Finder"
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'lead-finder':
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Google Lead Finder</h2>
+                  <p className="text-gray-600">Search Google Business for potential leads and add them to your CRM</p>
+                </div>
+              </div>
+
+              {/* Import the Google Lead Finder component */}
+              <div className="mt-6">
+                <iframe
+                  src="/leads/google"
+                  className="w-full h-[800px] border-0 rounded-lg"
+                  title="Google Lead Finder"
+                />
+              </div>
+            </div>
           </div>
         );
 

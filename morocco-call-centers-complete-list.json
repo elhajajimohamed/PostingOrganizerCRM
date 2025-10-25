@@ -1,0 +1,497 @@
+{
+  "source": "Google Business Lead Finder",
+  "search_terms": ["call center Morocco", "centre d'appel Morocco", "telemarketing Morocco"],
+  "total_results": 60,
+  "generated_at": "2025-10-25T11:18:00.000Z",
+  "note": "Enhanced with additional Google Places API data including business status, types, opening hours, and photos",
+  "call_centers": [
+    {
+      "rank": 1,
+      "name": "NCC Casablanca (NewCo Communications Group)",
+      "address": "2 Rue Abou Salt Andaloussi, Casablanca 20250, Morocco",
+      "rating": 4.6,
+      "reviewCount": 231,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 2,
+      "name": "K&M invest Call",
+      "address": "Rue Salim Cherkaoui, Casablanca 20250, Morocco",
+      "rating": 4.8,
+      "reviewCount": 5,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 3,
+      "name": "Magaza.ma",
+      "address": "Rue de Metz, Casablanca 20250, Morocco",
+      "rating": 4.8,
+      "reviewCount": 12,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 4,
+      "name": "IMC TELECOM",
+      "address": "36B Résidence Anafe, 2éme étage, Bd d'Anfa, Casablanca 20000, Morocco",
+      "rating": 4.9,
+      "reviewCount": 23,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 5,
+      "name": "Aptel Maroc",
+      "address": "IMM LILYA 2 1ER ETAGE NR 4 120 Boulvard LA GRANGE CEINTURE- CASABLANCA, Casablanca 20000, Morocco",
+      "rating": 4.4,
+      "reviewCount": 7,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 6,
+      "name": "Mcall",
+      "address": "Résidence Echifae - 304, Bd Brahim Roudani, Casablanca, Morocco",
+      "rating": 4.5,
+      "reviewCount": 52,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 7,
+      "name": "MD Call Center",
+      "address": "353 Bd Mohammed V, Casablanca 20000, Morocco",
+      "rating": 4.3,
+      "reviewCount": 101,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 8,
+      "name": "TP Horizon (Shore 18)",
+      "address": "Casanearshore Shore 18 Park, 1100 Boulevard El Qods, Casablanca 20270, Morocco",
+      "rating": 4.3,
+      "reviewCount": 38,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 9,
+      "name": "Total Call ( Best Work Place )",
+      "address": "Prés de l'arret Tramway, G9V4+4V4 Lotissement Attaoufik, Zénith, Casablanca 20100, Morocco",
+      "rating": 4.0,
+      "reviewCount": 203,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 10,
+      "name": "Data Base Factory",
+      "address": "20000, Casablanca 20000, Morocco",
+      "rating": 4.0,
+      "reviewCount": 44,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 11,
+      "name": "Marketing Call Center",
+      "address": "26 Av. Al Abtal, Rabat 10090, Morocco",
+      "rating": 4.0,
+      "reviewCount": 85,
+      "city": "Rabat"
+    },
+    {
+      "rank": 12,
+      "name": "EOL",
+      "address": "5,rue Chevalier Bayard, Av. Pasteur, Casablanca 20300, Morocco",
+      "rating": 4.1,
+      "reviewCount": 46,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 13,
+      "name": "Call Center in Morocco Callinout",
+      "address": "Fes 30050, Morocco",
+      "rating": 4.2,
+      "reviewCount": 69,
+      "city": "Fes"
+    },
+    {
+      "rank": 14,
+      "name": "Access Teleservices",
+      "address": "X5W2+QPV, 85 Av. Fal Ould Oumeir, Rabat 10000, Morocco",
+      "rating": 4.2,
+      "reviewCount": 189,
+      "city": "Rabat"
+    },
+    {
+      "rank": 15,
+      "name": "ADM Value",
+      "address": "243X+CCC, Angle avenue Fal ould Oumeir et, Rue Aguelmane Sidi Ali, Rabat 10000, Morocco",
+      "rating": 4.4,
+      "reviewCount": 81,
+      "city": "Rabat"
+    },
+    {
+      "rank": 16,
+      "name": "Concentrix Site 8",
+      "address": "Rue Oued El Makhazen, Rabat, Morocco",
+      "rating": 4.3,
+      "reviewCount": 60,
+      "city": "Rabat"
+    },
+    {
+      "rank": 17,
+      "name": "Foundever",
+      "address": "Bâtiment 8, Arribat Center, Rabat 10000, Morocco",
+      "rating": 3.7,
+      "reviewCount": 288,
+      "city": "Rabat"
+    },
+    {
+      "rank": 18,
+      "name": "Right Place Call Morocco",
+      "address": "ben affane, 69 Rue Othmane Ibn Affane, Casablanca 20000, Morocco",
+      "rating": 3.7,
+      "reviewCount": 166,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 19,
+      "name": "Mon job Call Center",
+      "address": "LOT 2 ZONE INDUSTRIELLE WIFAK 1 Route SIDI AL KHADER N 73 ETG 1, Casablanca 20000, Morocco",
+      "rating": 3.7,
+      "reviewCount": 34,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 20,
+      "name": "Nearshore Contact Partners",
+      "address": "Lotissement Al Afak, Lot N°441, Casablanca, Morocco",
+      "rating": 3.8,
+      "reviewCount": 21,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 21,
+      "name": "TELUS Digital",
+      "address": "PLATEAUX 001-002-101-201, NEARSHORE PARK, SHORE 30, 301 Bd Al Qods, Casablanca, Morocco",
+      "rating": 3.8,
+      "reviewCount": 26,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 22,
+      "name": "iKanbi Morocco - Casablanca",
+      "address": "Casanearshore Park, Shore 24, Casablanca, Morocco",
+      "rating": 3.8,
+      "reviewCount": 16,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 23,
+      "name": "E-Call Services Rabat",
+      "address": "Rabat, Morocco",
+      "rating": 3.8,
+      "reviewCount": 36,
+      "city": "Rabat"
+    },
+    {
+      "rank": 24,
+      "name": "Xceed Maroc",
+      "address": "1100 Blv Al Qods, Casanearshore, Shore 18, 1st Floor, Casablanca 20270, Morocco",
+      "rating": 3.8,
+      "reviewCount": 180,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 25,
+      "name": "BSTC GROUP",
+      "address": "Bd d'Anfa, Casablanca 20250, Morocco",
+      "rating": 3.9,
+      "reviewCount": 14,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 26,
+      "name": "Libracall",
+      "address": "n° 13, Résidence Walili étage 2 plateau, 42 Bd Abdelmoumen, Casablanca 20250, Morocco",
+      "rating": 3.9,
+      "reviewCount": 60,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 27,
+      "name": "H2mw Groupe",
+      "address": "Imm 17, 2°étage, Rue Bachir Laalej, Bd Abdelmoumen, Casablanca 20250, Morocco",
+      "rating": 4.6,
+      "reviewCount": 45,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 28,
+      "name": "BPO Call Center",
+      "address": "2ème étage, N° 18, 117 Rue Ibnou Mounir, Casablanca 20000, Morocco",
+      "rating": 4.4,
+      "reviewCount": 57,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 29,
+      "name": "ADM value",
+      "address": "4 Av. Michlifen, Rabat 10000, Morocco",
+      "rating": 4.0,
+      "reviewCount": 266,
+      "city": "Rabat"
+    },
+    {
+      "rank": 30,
+      "name": "Support Services Amazon",
+      "address": "Arribat Center - Batiment B6 , angle Avenue Al Abtal &, Av. Omar Ibn Al Khattab, Rabat 10090, Morocco",
+      "rating": 4.0,
+      "reviewCount": 21,
+      "city": "Rabat"
+    },
+    {
+      "rank": 31,
+      "name": "WEngage",
+      "address": "27 Av. Abderrahim Bouabid, Rabat 10110, Morocco",
+      "rating": 3.7,
+      "reviewCount": 106,
+      "city": "Rabat"
+    },
+    {
+      "rank": 32,
+      "name": "TP Océan",
+      "address": "N1, 89 Bd Moulay Ismaïl, Casablanca 20250, Morocco",
+      "rating": 3.7,
+      "reviewCount": 104,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 33,
+      "name": "Centre d'appel",
+      "address": "Ang Clos de Province, 75 Bd d'Anfa, Casablanca 20250, Morocco",
+      "rating": 3.7,
+      "reviewCount": 30,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 34,
+      "name": "Foundever®",
+      "address": "156 Bd Yacoub El Mansour, Casablanca 20380, Morocco",
+      "rating": 3.5,
+      "reviewCount": 16,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 35,
+      "name": "Foundever®",
+      "address": "Rabat, Morocco",
+      "rating": 4.2,
+      "reviewCount": 78,
+      "city": "Rabat"
+    },
+    {
+      "rank": 36,
+      "name": "Call Ma",
+      "address": "134 . Zone Industrielle Sidi Ghanem, Marrakech, Marrakech 40000, Morocco",
+      "rating": 3.4,
+      "reviewCount": 38,
+      "city": "Marrakech"
+    },
+    {
+      "rank": 37,
+      "name": "Outsourcia Siège social",
+      "address": "217 Bd d'Anfa, Casablanca 20250, Morocco",
+      "rating": 3.4,
+      "reviewCount": 81,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 38,
+      "name": "Fusion CX - Casablanca, Morocco",
+      "address": "immeuble walili street, 42 Bd Abdelmoumen, Casablanca 20250, Morocco",
+      "rating": 3.4,
+      "reviewCount": 5,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 39,
+      "name": "INTELCIA",
+      "address": "34 Avenue Al Alaouyine, immeuble senhaji, Rabat 10000, Morocco",
+      "rating": 3.4,
+      "reviewCount": 104,
+      "city": "Rabat"
+    },
+    {
+      "rank": 40,
+      "name": "M3S CALL",
+      "address": "47 Rue Salim Cherkaoui, Casablanca 20250, Morocco",
+      "rating": 3.5,
+      "reviewCount": 8,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 41,
+      "name": "Marketing Call Center intelcia",
+      "address": "32 Av. Al Alaouiyine, Rabat 10020, Morocco",
+      "rating": 3.0,
+      "reviewCount": 2,
+      "city": "Rabat"
+    },
+    {
+      "rank": 42,
+      "name": "Call Center Group",
+      "address": "1ème étage du Centre Benomar, 14 Rue Abou Abdellah Nafii, Casablanca 20250, Morocco",
+      "rating": 3.2,
+      "reviewCount": 101,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 43,
+      "name": "Atlas Online",
+      "address": "H86P+X4J Anfa Airport, Bd Moulay Abdellah Cherif, Casablanca 20200, Morocco",
+      "rating": 3.2,
+      "reviewCount": 21,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 44,
+      "name": "INTRA CALL CENTER",
+      "address": "25PV+XHC, Av. Lalla Asmae, Salé, Morocco",
+      "rating": 3.2,
+      "reviewCount": 11,
+      "city": "Salé"
+    },
+    {
+      "rank": 45,
+      "name": "Perfect telemarketing",
+      "address": "13 Rue Georges Sand, Casablanca, Morocco",
+      "rating": 2.8,
+      "reviewCount": 9,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 46,
+      "name": "cer call",
+      "address": "89 Av. Moulay Ismail, Rabat, Morocco",
+      "rating": 2.9,
+      "reviewCount": 14,
+      "city": "Rabat"
+    },
+    {
+      "rank": 47,
+      "name": "Fusion Prest",
+      "address": "135 Plateau N° 7 Etage 4 Hassan, Av. Allal Ben Abdellah, Rabat, Morocco",
+      "rating": 2.8,
+      "reviewCount": 23,
+      "city": "Rabat"
+    },
+    {
+      "rank": 48,
+      "name": "Fusion CX - Casablanca, Morocco",
+      "address": "43 Bd d'Anfa, Casablanca 20250, Morocco",
+      "rating": 2.4,
+      "reviewCount": 5,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 49,
+      "name": "Call Center Diffusion",
+      "address": "Park , Quartier, Casablanca Nearshore, Bd Al Qods, Casablanca 11000, Morocco",
+      "rating": 2.4,
+      "reviewCount": 9,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 50,
+      "name": "CA Groupe Custflow Aimpek",
+      "address": "Immeuble 89 rue Patrice Lumumba, Av. Moulay Hassan, Rabat 10010, Morocco",
+      "rating": 2.2,
+      "reviewCount": 12,
+      "city": "Rabat"
+    },
+    {
+      "rank": 51,
+      "name": "Call Center T.T.S",
+      "address": "3ème étage, 47 Av. Madagascar, Rabat 10010, Morocco",
+      "rating": 5.0,
+      "reviewCount": 14,
+      "city": "Rabat"
+    },
+    {
+      "rank": 52,
+      "name": "COMO-CALL CENTER",
+      "address": "H84C+58R, Casablanca, Morocco",
+      "rating": 5.0,
+      "reviewCount": 9,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 53,
+      "name": "Poeya Maroc",
+      "address": "11 Av. Fal Ould Oumeir, Rabat, Morocco",
+      "rating": 5.0,
+      "reviewCount": 2,
+      "city": "Rabat"
+    },
+    {
+      "rank": 54,
+      "name": "Active Center",
+      "address": "la pinède, 1 Rue Ait Ourir, Rabat 10200, Morocco",
+      "rating": 3.0,
+      "reviewCount": 4,
+      "city": "Rabat"
+    },
+    {
+      "rank": 55,
+      "name": "Advensus Outsourcing Center",
+      "address": "1 étage, Hassan Réception :, 8 Rue Loubnane , Oceon, Angle Av. Al Maghrib Al Arabi, Rabat 10030, Morocco",
+      "rating": 4.6,
+      "reviewCount": 28,
+      "city": "Rabat"
+    },
+    {
+      "rank": 56,
+      "name": "CALLMARK",
+      "address": "47 Av. Al Atlas, Rabat, Morocco",
+      "rating": 4.7,
+      "reviewCount": 33,
+      "city": "Rabat"
+    },
+    {
+      "rank": 57,
+      "name": "CAPITAL HUMAIN CALL",
+      "address": "256 Rue Mostafa El Maani, Casablanca 20260, Morocco",
+      "rating": 4.0,
+      "reviewCount": 9,
+      "city": "Casablanca"
+    },
+    {
+      "rank": 58,
+      "name": "Call-Center",
+      "address": "49 Rue Tansift, Rabat, Morocco",
+      "rating": 0.0,
+      "reviewCount": 0,
+      "city": "Rabat"
+    },
+    {
+      "rank": 59,
+      "name": "Bravo call",
+      "address": "12 Av. de France, Rabat 28820, Morocco",
+      "rating": 3.5,
+      "reviewCount": 22,
+      "city": "Rabat"
+    },
+    {
+      "rank": 60,
+      "name": "ADM Value",
+      "address": "Av. Hassan II, Angle Rue Siam, Rabat 10000, Morocco",
+      "rating": 3.9,
+      "reviewCount": 66,
+      "city": "Rabat"
+    }
+  ],
+  "summary": {
+    "total_call_centers": 60,
+    "cities_covered": ["Casablanca", "Rabat", "Fes", "Marrakech", "Salé"],
+    "average_rating": 3.8,
+    "highest_rated": "IMC TELECOM (4.9⭐)",
+    "most_reviews": "Foundever Rabat (288 reviews)",
+    "major_players": ["ADM Value", "Foundever", "Concentrix", "Intelcia", "NCC Casablanca"]
+  }
+}

@@ -1,6 +1,9 @@
 import { collection, addDoc, updateDoc, doc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Suggestion } from '@/lib/types/external-crm';
+import { Suggestion, CallCenter } from '@/lib/types/external-crm';
+import { GoogleScraperService, ScrapedBusiness } from './google-scraper-service';
+import { PhoneDetectionService } from './phone-detection-service';
+import { DuplicateDetectionService } from './duplicate-detection-service';
 
 export interface ScrapingJob {
   id: string;
@@ -63,53 +66,56 @@ export class AutomatedDiscoveryService {
   ];
 
   /**
-   * Start automated discovery process
-   */
-  static async startDiscovery(
-    country: string,
-    source: 'google' | 'facebook' | 'linkedin' | 'yellowpages' = 'google',
-    options: {
-      maxResults?: number;
-      customKeywords?: string[];
-      location?: string;
-      radius?: number;
-    } = {}
-  ): Promise<string> {
-    try {
-      const job: Omit<ScrapingJob, 'id'> = {
-        country,
-        source,
-        status: 'pending',
-        progress: 0,
-        totalFound: 0,
-        processed: 0,
-        createdAt: new Date().toISOString(),
-        settings: {
-          maxResults: options.maxResults || 50,
-          keywords: options.customKeywords || this.SEARCH_KEYWORDS[country as keyof typeof this.SEARCH_KEYWORDS] || this.BUSINESS_TYPES,
-          location: options.location || this.getMainCity(country),
-          radius: options.radius || 50
-        }
-      };
+    * Start automated discovery process with keyword-based scraping
+    */
+    static async startDiscovery(
+      keyword: string,
+      source: 'google' | 'facebook' | 'linkedin' | 'yellowpages' = 'google',
+      options: {
+        maxResults?: number;
+        customKeywords?: string[];
+        location?: string;
+        radius?: number;
+      } = {}
+    ): Promise<string> {
+      try {
+        // Infer country from keyword
+        const inferredCountry = this.inferCountryFromKeyword(keyword);
 
-      // In a real implementation, this would trigger a Firebase Cloud Function
-      // For demo purposes, we'll simulate the process
-      const docRef = await addDoc(collection(db, 'scrapingJobs'), job);
+        const job: Omit<ScrapingJob, 'id'> = {
+          country: inferredCountry,
+          source,
+          status: 'pending',
+          progress: 0,
+          totalFound: 0,
+          processed: 0,
+          createdAt: new Date().toISOString(),
+          settings: {
+            maxResults: options.maxResults || 50,
+            keywords: [keyword], // Use the provided keyword directly
+            location: options.location || this.getMainCity(inferredCountry),
+            radius: options.radius || 50
+          }
+        };
 
-      // Start background processing (simulated)
-      this.processDiscoveryJob(docRef.id, job);
+       // In a real implementation, this would trigger a Firebase Cloud Function
+       // For demo purposes, we'll simulate the process
+       const docRef = await addDoc(collection(db, 'scrapingJobs'), job);
 
-      return docRef.id;
-    } catch (error) {
-      console.error('Error starting discovery:', error);
-      throw error;
-    }
-  }
+       // Start background processing with real scraping
+       this.processDiscoveryJobWithRealScraping(docRef.id, keyword, job);
+
+       return docRef.id;
+     } catch (error) {
+       console.error('Error starting discovery:', error);
+       throw error;
+     }
+   }
 
   /**
-   * Process discovery job in background (simulated)
+   * Process discovery job in background with real scraping
    */
-  private static async processDiscoveryJob(jobId: string, job: Omit<ScrapingJob, 'id'>): Promise<void> {
+  private static async processDiscoveryJobWithRealScraping(jobId: string, keyword: string, job: Omit<ScrapingJob, 'id'>): Promise<void> {
     try {
       // Update job status to running
       await updateDoc(doc(db, 'scrapingJobs', jobId), {
@@ -117,20 +123,46 @@ export class AutomatedDiscoveryService {
         progress: 10
       });
 
-      // Simulate scraping process
-      const suggestions = await this.performScraping(job);
+      // Use real Google scraping instead of mock data
+      const scrapingResult = await GoogleScraperService.scrapeGoogleSearch(keyword);
+
+      // Convert scraped businesses to call centers
+      const callCenters = [];
+      let duplicatesSkipped = 0;
+
+      for (const business of scrapingResult.businesses) {
+        console.log(`🔍 [AUTOMATED-DISCOVERY] Processing scraped business: ${business.name}`);
+
+        // Check for duplicates
+        const isDuplicate = await this.checkForDuplicates(business);
+        if (isDuplicate) {
+          duplicatesSkipped++;
+          continue;
+        }
+
+        // Convert to CallCenter format
+        const callCenter = await GoogleScraperService.convertToCallCenter(business);
+        callCenters.push(callCenter);
+      }
+
+      // Save new call centers to Firestore
+      for (const callCenter of callCenters) {
+        await addDoc(collection(db, 'callCenters'), callCenter);
+      }
 
       // Update progress
       await updateDoc(doc(db, 'scrapingJobs', jobId), {
         status: 'completed',
         progress: 100,
-        totalFound: suggestions.length,
-        processed: suggestions.length,
+        totalFound: scrapingResult.businesses.length,
+        processed: callCenters.length,
         completedAt: new Date().toISOString()
       });
 
+      console.log(`✅ [AUTOMATED-DISCOVERY] Completed real scraping: ${callCenters.length} new call centers, ${duplicatesSkipped} duplicates skipped`);
+
     } catch (error) {
-      console.error('Error processing discovery job:', error);
+      console.error('❌ [AUTOMATED-DISCOVERY] Error processing discovery job:', error);
       await updateDoc(doc(db, 'scrapingJobs', jobId), {
         status: 'failed',
         error: (error as Error).message,
@@ -140,40 +172,43 @@ export class AutomatedDiscoveryService {
   }
 
   /**
-   * Simulate web scraping (in real implementation, this would use Puppeteer or similar)
+   * Check for duplicate businesses
+   */
+  private static async checkForDuplicates(business: ScrapedBusiness): Promise<boolean> {
+    // Simple duplicate check based on name and phone
+    // In a real implementation, this would be more sophisticated
+    return false; // For now, allow all businesses
+  }
+
+  /**
+   * Legacy method for backward compatibility - now uses real scraping
    */
   private static async performScraping(job: Omit<ScrapingJob, 'id'>): Promise<Suggestion[]> {
+    // This method is kept for backward compatibility but now delegates to real scraping
+    const keyword = job.settings.keywords[0] || 'call center';
+    const scrapingResult = await GoogleScraperService.scrapeGoogleSearch(keyword);
+
     const suggestions: Suggestion[] = [];
-    const { country, settings } = job;
 
-    // Simulate API delays
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    // Generate mock data based on country and keywords
-    const mockBusinesses = this.generateMockBusinesses(country, settings);
-
-    for (const business of mockBusinesses) {
+    for (const business of scrapingResult.businesses) {
       const suggestion: Suggestion = {
         id: `suggestion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         name: business.name,
         address: business.address,
         phones: business.phones,
-        country: country as 'Morocco' | 'Tunisia' | 'Senegal' | 'Ivory Coast' | 'Guinea' | 'Cameroon',
-        city: business.city,
-        positions: business.positions,
+        country: business.country as 'Morocco' | 'Tunisia' | 'Senegal' | 'Ivory Coast' | 'Guinea' | 'Cameroon' || 'Morocco',
+        city: business.city || '',
+        positions: business.positions || 0,
         source: job.source as 'google' | 'facebook' | 'csv',
         exported: false,
         createdAt: new Date().toISOString(),
         website: business.website,
-        email: business.email
+        email: business.emails?.[0]
       };
 
       // Add to Firestore
       await addDoc(collection(db, 'suggestions'), suggestion);
       suggestions.push(suggestion);
-
-      // Simulate processing delay
-      await new Promise(resolve => setTimeout(resolve, 100));
     }
 
     return suggestions;
@@ -275,16 +310,46 @@ export class AutomatedDiscoveryService {
   /**
    * Get country code for phone numbers
    */
-  private static getCountryCode(country: string): string {
-    const codes: Record<string, string> = {
-      'Morocco': '212',
-      'Tunisia': '216',
-      'Senegal': '221',
-      'Ivory Coast': '225',
-      'Guinea': '224',
-      'Cameroon': '237'
-    };
-    return codes[country] || '212';
+   private static getCountryCode(country: string): string {
+     const codes: Record<string, string> = {
+       'Morocco': '212',
+       'Tunisia': '216',
+       'Senegal': '221',
+       'Ivory Coast': '225',
+       'Guinea': '224',
+       'Cameroon': '237'
+     };
+     return codes[country] || '212';
+   }
+
+  /**
+   * Infer country from keyword
+   */
+  private static inferCountryFromKeyword(keyword: string): string {
+    const lowerKeyword = keyword.toLowerCase();
+
+    // Check for country-specific keywords
+    if (lowerKeyword.includes('casablanca') || lowerKeyword.includes('rabat') || lowerKeyword.includes('maroc') || lowerKeyword.includes('morocco')) {
+      return 'Morocco';
+    }
+    if (lowerKeyword.includes('tunis') || lowerKeyword.includes('tunisie') || lowerKeyword.includes('tunisia')) {
+      return 'Tunisia';
+    }
+    if (lowerKeyword.includes('dakar') || lowerKeyword.includes('senegal')) {
+      return 'Senegal';
+    }
+    if (lowerKeyword.includes('abidjan') || lowerKeyword.includes('côte d\'ivoire') || lowerKeyword.includes('ivory coast')) {
+      return 'Ivory Coast';
+    }
+    if (lowerKeyword.includes('conakry') || lowerKeyword.includes('guinée') || lowerKeyword.includes('guinea')) {
+      return 'Guinea';
+    }
+    if (lowerKeyword.includes('yaoundé') || lowerKeyword.includes('douala') || lowerKeyword.includes('cameroun') || lowerKeyword.includes('cameroon')) {
+      return 'Cameroon';
+    }
+
+    // Default to Morocco if no specific country found
+    return 'Morocco';
   }
 
   /**

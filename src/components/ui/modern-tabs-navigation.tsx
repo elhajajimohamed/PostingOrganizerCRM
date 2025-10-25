@@ -9,7 +9,6 @@ import {
    Building2,
    Map,
    Shield,
-   Lightbulb,
    Phone,
    PhoneCall,
    DollarSign,
@@ -19,7 +18,9 @@ import {
    Users,
    Calendar,
    ChevronLeft,
-   ChevronRight
+   ChevronRight,
+   Search,
+   Target
  } from 'lucide-react';
 
 interface TabItem {
@@ -57,11 +58,6 @@ const tabItems: TabItem[] = [
     icon: <Shield className="w-4 h-4" />
   },
   {
-    id: 'suggestions',
-    label: 'Lead Generation',
-    icon: <Lightbulb className="w-4 h-4" />
-  },
-  {
     id: 'financial',
     label: 'Financial',
     icon: <DollarSign className="w-4 h-4" />
@@ -85,6 +81,11 @@ const tabItems: TabItem[] = [
     id: 'calendar',
     label: 'Calendar',
     icon: <Calendar className="w-4 h-4" />
+  },
+  {
+    id: 'lead-finder',
+    label: 'Lead Finder',
+    icon: <Target className="w-4 h-4" />
   },
   {
     id: 'posting-crm',

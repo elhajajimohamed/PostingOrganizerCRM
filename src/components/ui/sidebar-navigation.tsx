@@ -9,7 +9,6 @@ import {
    Building2,
    Map,
    Shield,
-   Lightbulb,
    Phone,
    PhoneCall,
    DollarSign,
@@ -19,7 +18,9 @@ import {
    Users,
    Calendar,
    Menu,
-   X
+   X,
+   Search,
+   Target
  } from 'lucide-react';
 
 interface NavigationItem {
@@ -62,11 +63,6 @@ const navigationItems: NavigationItem[] = [
     icon: <Shield className="w-5 h-5" />
   },
   {
-    id: 'suggestions',
-    label: 'Lead Generation',
-    icon: <Lightbulb className="w-5 h-5" />
-  },
-  {
     id: 'financial',
     label: 'Financial',
     icon: <DollarSign className="w-5 h-5" />
@@ -90,6 +86,11 @@ const navigationItems: NavigationItem[] = [
     id: 'calendar',
     label: 'Calendar',
     icon: <Calendar className="w-5 h-5" />
+  },
+  {
+    id: 'lead-finder',
+    label: 'Lead Finder',
+    icon: <Target className="w-5 h-5" />
   },
   {
     id: 'posting-crm',
