@@ -48,3 +48,6 @@ coverage/
 # Temporary folders
 tmp/
 temp/
+
+# Firebase service account keys
+data keeping/firebase-export/*.json

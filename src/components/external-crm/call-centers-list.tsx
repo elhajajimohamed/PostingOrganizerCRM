@@ -941,7 +941,7 @@ ${index + 1}. ${cc.name}
               </TabsContent>
 
               <TabsContent value="export" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Button
                     variant="outline"
                     size="sm"
@@ -960,16 +960,6 @@ ${index + 1}. ${cc.name}
                   >
                     <Download className="w-4 h-4 mr-2" />
                     Export as JSON
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleBulkExport('excel')}
-                    className="flex items-center justify-center"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export as Excel
                   </Button>
 
                   <Button

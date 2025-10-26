@@ -1,0 +1,32 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Media files - public read access for images and videos
+    match /media/{userId}/{allPaths=**} {
+      allow read: if true; // Public read access for media files
+      allow write: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      allow delete: if isAuthenticated() && (isOwner(userId) || isAdmin());
+    }
+
+    // General read access for authenticated users (for shared media)
+    match /{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write, delete: if isAdmin();
+    }
+  }
+}

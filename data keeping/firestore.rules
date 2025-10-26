@@ -1,0 +1,112 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow all operations for development/testing - REMOVE IN PRODUCTION
+    match /{document=**} {
+      allow read, write: if true;
+    }
+
+    // Users collection - only admins can create users, users can read/update their own data
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
+      allow create: if isAdmin();
+      allow update: if isOwnerOrAdmin(userId);
+      allow delete: if isAdmin();
+    }
+
+    // Accounts collection - admins have full access, operators can read
+    match /accounts/{accountId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Groups collection - admins have full access, operators can read
+    match /groups/{groupId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // Templates collection - admins have full access, operators can read
+    match /templates/{templateId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Both admins and operators can create/edit templates
+    }
+
+    // Media collection - users can only access their own media, admins have full access
+    match /media/{mediaId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isOwnerOrAdmin(resource.data.uploadedBy);
+      allow delete: if isOwnerOrAdmin(resource.data.uploadedBy);
+    }
+
+    // Tasks collection - users can only access their assigned tasks, admins have full access
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated() && (resource.data.assignedTo == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (resource.data.assignedTo == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // Allow querying tasks collection for authenticated users
+    match /tasks {
+      allow read: if isAuthenticated();
+    }
+
+    // Post history collection - operators can read/write their own posts, admins have full access
+    match /postHistory/{postId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isOwnerOrAdmin(resource.data.operatorId);
+      allow delete: if isAdmin();
+    }
+
+    // Settings collection - only admins can access
+    match /settings/{settingId} {
+      allow read, write: if isAdmin();
+    }
+
+    // External CRM collections - allow access for development (REMOVE IN PRODUCTION)
+    match /callCenters/{callCenterId} {
+       allow read, write: if true;
+
+       // Explicitly allow subcollection access for call logs, contacts, steps, and recharges
+       match /callHistory/{callLogId} {
+         allow read, write: if true;
+       }
+
+       match /contacts/{contactId} {
+         allow read, write: if true;
+       }
+
+       match /steps/{stepId} {
+         allow read, write: if true;
+       }
+
+       match /recharges/{rechargeId} {
+         allow read, write: if true;
+       }
+    }
+
+    match /phoneRotation/{rotationId} {
+       allow read, write: if true;
+    }
+
+    match /suggestions/{suggestionId} {
+       allow read, write: if true;
+    }
+
+    // Allow querying external CRM collections
+    match /callCenters {
+      allow read, write: if true;
+    }
+
+    match /phoneRotation {
+      allow read, write: if true;
+    }
+
+    match /suggestions {
+      allow read, write: if true;
+    }
+  }
+}

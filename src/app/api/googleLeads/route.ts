@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, query, where, getDocs } from 'firebase/firestore';
 import { CallCenter } from '@/lib/types/external-crm';
+import { DuplicateDetectionService } from '@/lib/services/duplicate-detection-service';
 
 interface GooglePlaceResult {
   name: string;
@@ -77,6 +78,48 @@ function extractCityFromAddress(address: string): string {
   return parts.length > 1 ? parts[1] : parts[0] || 'Unknown';
 }
 
+// Helper function to calculate string similarity
+function calculateSimilarity(str1: string, str2: string): number {
+  if (str1 === str2) return 100;
+
+  const longer = str1.length > str2.length ? str1 : str2;
+  const shorter = str1.length > str2.length ? str2 : str1;
+
+  if (longer.length === 0) return 100;
+
+  const distance = levenshteinDistance(longer, shorter);
+  return Math.round((longer.length - distance) / longer.length * 100);
+}
+
+// Helper function for Levenshtein distance calculation
+function levenshteinDistance(str1: string, str2: string): number {
+  const matrix = [];
+
+  for (let i = 0; i <= str2.length; i++) {
+    matrix[i] = [i];
+  }
+
+  for (let j = 0; j <= str1.length; j++) {
+    matrix[0][j] = j;
+  }
+
+  for (let i = 1; i <= str2.length; i++) {
+    for (let j = 1; j <= str1.length; j++) {
+      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1, // substitution
+          matrix[i][j - 1] + 1,     // insertion
+          matrix[i - 1][j] + 1      // deletion
+        );
+      }
+    }
+  }
+
+  return matrix[str2.length][str1.length];
+}
+
 // Helper function to estimate positions based on business type and size indicators
 function estimatePositions(name: string, address: string, types?: string[]): number {
   const lowerName = name.toLowerCase();
@@ -127,6 +170,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Parse cities from comma-separated input
+    const cities = city.split(',').map((c: string) => c.trim()).filter((c: string) => c.length > 0);
+
+    if (cities.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one valid city is required' },
+        { status: 400 }
+      );
+    }
+
     const apiKey = process.env.GOOGLE_PLACES_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
@@ -135,14 +188,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // PHASE 1: GEOGRAPHIC EXPANSION - Search multiple Moroccan cities
-    const MOROCCAN_BPO_HUBS = [
-      { city: "Casablanca", priority: 1, radius: 50000 },
-      { city: "Rabat", priority: 2, radius: 30000 },
-      { city: "Marrakech", priority: 3, radius: 30000 },
-      { city: "Tangier", priority: 4, radius: 30000 },
-      { city: "Fes", priority: 5, radius: 20000 }
-    ];
+    // PHASE 1: Search across multiple specified cities
+    const MOROCCAN_BPO_HUBS = cities.map((cityName: string, index: number) => ({
+      city: cityName,
+      priority: index + 1,
+      radius: 50000
+    }));
 
 
     // PHASE 1: EXPANDED KEYWORD VARIATIONS (100+ combinations)
@@ -192,7 +243,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(`🚀 Generated ${searchCombinations.length} search combinations across ${MOROCCAN_BPO_HUBS.length} cities`);
+    console.log(`🚀 Generated ${searchCombinations.length} search combinations across ${cities.length} cities: ${cities.join(', ')}`);
 
     // PHASE 2: MAXIMUM SPEED OPTIMIZATION for 500+ results
     const maxConcurrentSearches = 12; // Increased to 12 concurrent searches for maximum throughput
@@ -426,7 +477,96 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    return NextResponse.json({ results: detailedResults });
+    // PHASE 3: AUTOMATIC CRM DUPLICATE CHECK
+    console.log(`🔍 Checking ${detailedResults.length} leads against CRM database...`);
+
+    // Get all existing call centers from CRM
+    try {
+      const crmResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/external-crm?page=1&limit=10000`);
+      if (crmResponse.ok) {
+        const crmData = await crmResponse.json();
+        const existingCallCenters = crmData.callCenters || [];
+
+        console.log(`📊 Found ${existingCallCenters.length} existing call centers in CRM`);
+
+        // Check each lead against existing centers
+        const resultsWithCRMStatus = detailedResults.map((lead) => {
+          // Check for exact placeId match first (most reliable)
+          const exactPlaceIdMatch = existingCallCenters.find((cc: any) => cc.placeId === lead.placeId);
+          if (exactPlaceIdMatch) {
+            console.log(`✅ Found exact placeId match for ${lead.name}`);
+            return { ...lead, existsInCRM: true, isNew: false, isInCRM: true };
+          }
+
+          // Check for exact name match
+          const exactNameMatch = existingCallCenters.find((cc: any) =>
+            cc.name?.toLowerCase().trim() === lead.name?.toLowerCase().trim()
+          );
+          if (exactNameMatch) {
+            console.log(`✅ Found exact name match for ${lead.name}`);
+            return { ...lead, existsInCRM: true, isNew: false, isInCRM: true };
+          }
+
+          // Use similarity-based duplicate detection
+          const duplicates = existingCallCenters.filter((cc: any) => {
+            // Same country check
+            if (cc.country !== lead.country) return false;
+
+            // Calculate name similarity (simple implementation)
+            const name1 = lead.name?.toLowerCase() || '';
+            const name2 = cc.name?.toLowerCase() || '';
+            const similarity = calculateSimilarity(name1, name2);
+
+            // Check for high similarity matches (90%+)
+            if (similarity >= 90) return true;
+
+            // Check for medium similarity with city boost (70%+ name + 80%+ city)
+            if (similarity >= 70) {
+              const city1 = lead.city?.toLowerCase() || '';
+              const city2 = cc.city?.toLowerCase() || '';
+              const citySimilarity = calculateSimilarity(city1, city2);
+              if (citySimilarity >= 80) return true;
+            }
+
+            return false;
+          });
+
+          const hasDuplicates = duplicates.length > 0;
+          if (hasDuplicates) {
+            console.log(`✅ Found similarity match for ${lead.name} (${duplicates.length} matches)`);
+          }
+          return { ...lead, existsInCRM: hasDuplicates, isNew: !hasDuplicates, isInCRM: hasDuplicates };
+        });
+
+        // Calculate summary
+        const newCount = resultsWithCRMStatus.filter(lead => lead.isNew).length;
+        const existingCount = resultsWithCRMStatus.filter(lead => lead.existsInCRM).length;
+
+        console.log(`📊 CRM Analysis Complete: ${newCount} new leads, ${existingCount} existing`);
+
+        return NextResponse.json({
+          results: resultsWithCRMStatus,
+          summary: {
+            total: resultsWithCRMStatus.length,
+            new: newCount,
+            existing: existingCount
+          }
+        });
+      }
+    } catch (crmError) {
+      console.error('❌ Error checking CRM duplicates:', crmError);
+      // Continue without CRM status if check fails
+    }
+
+    // Fallback: return results without CRM status if CRM check fails
+    return NextResponse.json({
+      results: detailedResults.map(lead => ({ ...lead, existsInCRM: false, isNew: true, isInCRM: false })),
+      summary: {
+        total: detailedResults.length,
+        new: detailedResults.length,
+        existing: 0
+      }
+    });
   } catch (error) {
     console.error('Error fetching Google Places data:', error);
     return NextResponse.json(

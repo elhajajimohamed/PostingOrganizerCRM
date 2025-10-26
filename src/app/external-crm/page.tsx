@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ModernTabsNavigation } from '@/components/ui/modern-tabs-navigation';
-import { Building2, Plus, Circle, CheckCircle, Search } from 'lucide-react';
+import { Building2, Plus, Circle, CheckCircle, Search, Download } from 'lucide-react';
 import { CallCenterForm } from '@/components/external-crm/call-center-form';
 import { CallCentersList } from '@/components/external-crm/call-centers-list';
 import { CallCentersDashboard } from '@/components/external-crm/call-centers-dashboard';
@@ -66,6 +66,7 @@ export default function ExternalCRMPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeLeadFinderTab, setActiveLeadFinderTab] = useState<'google' | 'linkedin'>('google');
   const [callCenters, setCallCenters] = useState<CallCenter[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -995,9 +996,128 @@ export default function ExternalCRMPage() {
     }
   };
 
-  const handleEdit = (callCenter: CallCenter) => {
-    setEditingCallCenter(callCenter);
+  const handleExport = async (format: 'csv' | 'json' | 'pdf') => {
+    // Fetch all call centers from database
+    try {
+      const response = await fetch('/api/external-crm?all=true');
+      if (!response.ok) {
+        alert('Failed to fetch all call centers for export');
+        return;
+      }
+      const data = await response.json();
+      const dataToExport = data.data || [];
+
+      if (dataToExport.length === 0) {
+        alert('No call centers to export');
+        return;
+      }
+
+      const timestamp = new Date().toISOString().split('T')[0];
+
+      if (format === 'csv') {
+        // CSV Export
+        const headers = ['Name', 'Country', 'City', 'Positions', 'Status', 'Phones', 'Emails', 'Website', 'Value', 'Currency'];
+        const csvContent = [
+          headers.join(','),
+          ...dataToExport.map((cc: any) => [
+            `"${cc.name.replace(/"/g, '""')}"`,
+            cc.country,
+            cc.city,
+            cc.positions,
+            cc.status,
+            `"${cc.phones?.join('; ') || ''}"`,
+            `"${cc.emails?.join('; ') || ''}"`,
+            cc.website || '',
+            cc.value || '',
+            cc.currency || ''
+          ].join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `call-centers-${timestamp}.csv`;
+        link.click();
+
+      } else if (format === 'json') {
+        // JSON Export
+        const jsonContent = JSON.stringify(dataToExport, null, 2);
+        const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = `call-centers-${timestamp}.json`;
+        link.click();
+
+      } else if (format === 'pdf') {
+        // PDF Export (simple HTML to PDF)
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+          const htmlContent = `
+            <html>
+              <head>
+                <title>Call Centers Export - ${timestamp}</title>
+                <style>
+                  body { font-family: Arial, sans-serif; margin: 20px; }
+                  h1 { color: #333; }
+                  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                  th { background-color: #f2f2f2; }
+                  .new-lead { background-color: #e8f5e8; }
+                  .existing-lead { background-color: #ffe8e8; }
+                </style>
+              </head>
+              <body>
+                <h1>Call Centers Export</h1>
+                <p>Generated on: ${new Date().toLocaleString()}</p>
+                <p>Total call centers: ${dataToExport.length}</p>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Country</th>
+                      <th>City</th>
+                      <th>Positions</th>
+                      <th>Status</th>
+                      <th>Phone</th>
+                      <th>Website</th>
+                      <th>Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${dataToExport.map((cc: any) => `
+                      <tr>
+                        <td>${cc.name}</td>
+                        <td>${cc.country}</td>
+                        <td>${cc.city}</td>
+                        <td>${cc.positions}</td>
+                        <td>${cc.status}</td>
+                        <td>${cc.phones?.[0] || 'N/A'}</td>
+                        <td>${cc.website || 'N/A'}</td>
+                        <td>${cc.value ? `${cc.value} ${cc.currency}` : 'N/A'}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </body>
+            </html>
+          `;
+
+          printWindow.document.write(htmlContent);
+          printWindow.document.close();
+          printWindow.print();
+        }
+      }
+
+      alert(`Exported ${dataToExport.length} call centers as ${format.toUpperCase()}`);
+    } catch (error) {
+      console.error('Error exporting call centers:', error);
+      alert('Failed to export call centers');
+    }
   };
+
+const handleEdit = (callCenter: CallCenter) => {
+  setEditingCallCenter(callCenter);
+};
 
   const handleFormSubmit = (data: Omit<CallCenter, 'id' | 'createdAt'>) => {
     if (editingCallCenter) {
@@ -1025,6 +1145,30 @@ export default function ExternalCRMPage() {
               <div className="flex space-x-2">
                 <BulkImport onImport={handleBulkImport} />
                 <EnhancedImport onImport={handleBulkImport} />
+                <Button
+                  variant="outline"
+                  onClick={() => handleExport('csv')}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleExport('json')}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export JSON
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => handleExport('pdf')}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export PDF
+                </Button>
                 <Dialog open={showForm || !!editingCallCenter} onOpenChange={(open) => {
                   if (!open) handleFormCancel();
                 }}>
@@ -1425,40 +1569,53 @@ export default function ExternalCRMPage() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Lead Finder</h2>
-                  <p className="text-gray-600">Search Google Business for potential leads and add them to your CRM</p>
+                  <p className="text-gray-600">Search for potential leads from Google Business and LinkedIn profiles</p>
                 </div>
               </div>
 
-              {/* Import the Google Lead Finder component */}
+              {/* Tabs for Google and LinkedIn Finder */}
               <div className="mt-6">
-                <iframe
-                  src="/leads/google"
-                  className="w-full h-[800px] border-0 rounded-lg"
-                  title="Lead Finder"
-                />
-              </div>
-            </div>
-          </div>
-        );
-
-      case 'lead-finder':
-        return (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Google Lead Finder</h2>
-                  <p className="text-gray-600">Search Google Business for potential leads and add them to your CRM</p>
+                <div className="border-b border-gray-200 mb-6">
+                  <nav className="flex space-x-8">
+                    <button
+                      onClick={() => setActiveLeadFinderTab('google')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                        activeLeadFinderTab === 'google'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      Google Business
+                    </button>
+                    <button
+                      onClick={() => setActiveLeadFinderTab('linkedin')}
+                      className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                        activeLeadFinderTab === 'linkedin'
+                          ? 'border-blue-500 text-blue-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      LinkedIn Profiles
+                    </button>
+                  </nav>
                 </div>
-              </div>
 
-              {/* Import the Google Lead Finder component */}
-              <div className="mt-6">
-                <iframe
-                  src="/leads/google"
-                  className="w-full h-[800px] border-0 rounded-lg"
-                  title="Google Lead Finder"
-                />
+                {/* Content based on active tab */}
+                <div className="mt-6">
+                  {activeLeadFinderTab === 'google' ? (
+                    <iframe
+                      src="/leads/google"
+                      className="w-full h-[800px] border-0 rounded-lg"
+                      title="Google Lead Finder"
+                    />
+                  ) : (
+                    <iframe
+                      src="/leads/linkedin"
+                      className="w-full h-[800px] border-0 rounded-lg"
+                      title="LinkedIn Lead Finder"
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -1471,6 +1628,28 @@ export default function ExternalCRMPage() {
         return <CallCentersDashboard callCenters={callCenters} loading={loading} />;
     }
   };
+
+  console.log('🔄 Rendering ExternalCRMPage component');
+  console.log('👤 User state:', { user: !!user, userId: user?.uid, displayName: user?.displayName, email: user?.email });
+  console.log('📊 Loading state:', loading);
+  console.log('🏷️ Active tab:', activeTab);
+  console.log('📋 Call centers count:', callCenters.length);
+  console.log('📝 Suggestions count:', suggestions.length);
+
+  // Show loading indicator if still loading
+  if (loading) {
+    console.log('⏳ Showing loading indicator');
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading CRM...</p>
+        </div>
+      </div>
+    );
+  }
+
+  console.log('✅ Rendering main content');
 
   return (
     <div className="min-h-screen bg-gray-50">

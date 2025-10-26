@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Progress } from '@/components/ui/progress';
-import { Loader2, Search, MapPin, Phone, Globe, Star, Plus, CheckCircle, Trash2 } from 'lucide-react';
+import { Loader2, Search, MapPin, Phone, Globe, Star, Plus, CheckCircle, Trash2, Download } from 'lucide-react';
 import { toast } from 'sonner';
+import { DuplicateDetectionService } from '@/lib/services/duplicate-detection-service';
 
 interface GoogleLead {
   name: string;
@@ -24,13 +25,17 @@ interface GoogleLead {
   city: string;
   estimatedPositions: number;
   confidenceScore?: number;
-  isInCRM?: boolean;
+  existsInCRM?: boolean;
+  isNew?: boolean;
+  isInCRM?: boolean; // For backward compatibility
 }
 
 export default function GoogleLeadFinder() {
   const [keyword, setKeyword] = useState('');
   const [city, setCity] = useState('');
   const [results, setResults] = useState<GoogleLead[]>([]);
+  const [summary, setSummary] = useState<{ total: number; new: number; existing: number } | null>(null);
+  const [runningDuplicateCheck, setRunningDuplicateCheck] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [selectedLeads, setSelectedLeads] = useState<Set<string>>(new Set());
@@ -98,37 +103,20 @@ export default function GoogleLeadFinder() {
         throw new Error(data.error || 'Failed to fetch leads');
       }
 
-      setProgressDialog(prev => ({ ...prev, currentStep: 'Checking CRM status...', progress: 80 }));
+      setProgressDialog(prev => ({ ...prev, currentStep: 'Analyzing CRM status...', progress: 80 }));
 
-      // Check which leads are already in CRM
-      const leadsWithCRMStatus = await Promise.all(
-        (data.results || []).map(async (lead: GoogleLead, index: number) => {
-          try {
-            setProgressDialog(prev => ({
-              ...prev,
-              currentStep: `Checking CRM status for ${lead.name}...`,
-              progress: 80 + Math.floor((index / (data.results?.length || 1)) * 15)
-            }));
-
-            const checkResponse = await fetch('/api/googleLeads', {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({ ...lead, checkOnly: true }),
-            });
-            const checkData = await checkResponse.json();
-            return { ...lead, isInCRM: checkData.exists || false };
-          } catch (error) {
-            console.error('Error checking CRM status:', error);
-            return { ...lead, isInCRM: false };
-          }
-        })
-      );
+      // Results now come with CRM status from the API
+      const leadsWithCRMStatus = (data.results || []).map((lead: GoogleLead) => ({
+        ...lead,
+        isInCRM: lead.existsInCRM || false,
+        existsInCRM: lead.existsInCRM || false,
+        isNew: lead.isNew || false
+      }));
 
       setProgressDialog(prev => ({ ...prev, currentStep: 'Finalizing results...', progress: 95 }));
 
       setResults(leadsWithCRMStatus);
+      setSummary(data.summary || null);
       setProgressDialog(prev => ({ ...prev, currentStep: 'Complete!', progress: 100, resultsFound: leadsWithCRMStatus.length }));
 
       // Close dialog after a short delay
@@ -264,7 +252,118 @@ export default function GoogleLeadFinder() {
     if (confirm('Are you sure you want to clear all search results?')) {
       setResults([]);
       setSelectedLeads(new Set());
+      setSummary(null);
       toast.info('Search results cleared');
+    }
+  };
+
+  const handleSelectOnlyNew = () => {
+    const newLeadIds = new Set(results.filter(lead => lead.isNew).map(lead => lead.placeId));
+    setSelectedLeads(newLeadIds);
+    toast.success(`Selected ${newLeadIds.size} new leads`);
+  };
+
+  const handleRunDuplicateCheck = async () => {
+    if (results.length === 0) {
+      toast.error('No leads to check for duplicates');
+      return;
+    }
+
+    setRunningDuplicateCheck(true);
+    try {
+      // Use the same approach as the working duplicates section
+      const checkResponse = await fetch('/api/external-crm/duplicates', {
+        method: 'GET',
+      });
+
+      if (!checkResponse.ok) {
+        throw new Error('Failed to get CRM data for duplicate check');
+      }
+
+      const crmData = await checkResponse.json();
+
+      // Get all existing call centers from the CRM
+      const crmResponse = await fetch('/api/external-crm?page=1&limit=10000', {
+        method: 'GET',
+      });
+
+      if (!crmResponse.ok) {
+        throw new Error('Failed to get CRM call centers');
+      }
+
+      const crmResult = await crmResponse.json();
+      const existingCallCenters = crmResult.callCenters || [];
+
+      console.log(`🔍 Checking ${results.length} leads against ${existingCallCenters.length} existing CRM entries`);
+
+      // Check each lead against all existing centers using in-memory comparison
+    const updatedResults = results.map((lead) => {
+      // Check for exact placeId match first (most reliable)
+      const exactPlaceIdMatch = existingCallCenters.find((cc: any) => cc.placeId === lead.placeId);
+      if (exactPlaceIdMatch) {
+        console.log(`Found exact placeId match for ${lead.name}`);
+        return { ...lead, existsInCRM: true, isNew: false };
+      }
+
+      // Check for exact name match
+      const exactNameMatch = existingCallCenters.find((cc: any) =>
+        cc.name?.toLowerCase().trim() === lead.name?.toLowerCase().trim()
+      );
+      if (exactNameMatch) {
+        console.log(`Found exact name match for ${lead.name}`);
+        return { ...lead, existsInCRM: true, isNew: false };
+      }
+
+      // Use similarity-based duplicate detection (same logic as working system)
+      const duplicates = existingCallCenters.filter((cc: any) => {
+        // Same country check
+        if (cc.country !== lead.country) return false;
+
+        // Calculate name similarity
+        const nameSimilarity = DuplicateDetectionService.calculateSimilarity(
+          lead.name || '',
+          cc.name || ''
+        );
+
+        // Check for high similarity matches (90%+)
+        if (nameSimilarity >= 90) return true;
+
+        // Check for medium similarity with city boost (70%+ name + 80%+ city)
+        if (nameSimilarity >= 70) {
+          const citySimilarity = DuplicateDetectionService.calculateSimilarity(
+            lead.city || '',
+            cc.city || ''
+          );
+          if (citySimilarity >= 80) return true;
+        }
+
+        return false;
+      });
+
+      const hasDuplicates = duplicates.length > 0;
+      if (hasDuplicates) {
+        console.log(`Found similarity match for ${lead.name} (${duplicates.length} matches)`);
+      }
+      return { ...lead, existsInCRM: hasDuplicates, isNew: !hasDuplicates };
+    });
+
+      setResults(updatedResults);
+
+      // Update summary
+      const newCount = updatedResults.filter(lead => lead.isNew).length;
+      const existingCount = updatedResults.filter(lead => lead.existsInCRM).length;
+      setSummary({
+        total: updatedResults.length,
+        new: newCount,
+        existing: existingCount
+      });
+
+      toast.success(`Duplicate check complete! Found ${newCount} new leads and ${existingCount} existing.`);
+    } catch (error) {
+      console.error('Duplicate check error:', error);
+      toast.error('Failed to run duplicate check');
+    } finally {
+      setRunningDuplicateCheck(false);
     }
   };
 
@@ -285,6 +384,115 @@ export default function GoogleLeadFinder() {
     } else {
       setSelectedLeads(new Set());
     }
+  };
+
+  const handleExport = (format: 'csv' | 'json' | 'pdf') => {
+    const dataToExport = filteredResults;
+
+    if (dataToExport.length === 0) {
+      toast.error('No data to export');
+      return;
+    }
+
+    const timestamp = new Date().toISOString().split('T')[0];
+
+    if (format === 'csv') {
+      // CSV Export
+      const headers = ['Name', 'Address', 'Phone', 'Website', 'City', 'Country', 'Positions', 'Rating', 'Reviews', 'Status'];
+      const csvContent = [
+        headers.join(','),
+        ...dataToExport.map(lead => [
+          `"${lead.name.replace(/"/g, '""')}"`,
+          `"${lead.address.replace(/"/g, '""')}"`,
+          `"${lead.phone}"`,
+          `"${lead.website}"`,
+          `"${lead.city}"`,
+          `"${lead.country}"`,
+          lead.estimatedPositions,
+          lead.rating,
+          lead.reviewCount,
+          lead.isNew ? 'New' : 'Existing'
+        ].join(','))
+      ].join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `google-leads-${timestamp}.csv`;
+      link.click();
+
+    } else if (format === 'json') {
+      // JSON Export
+      const jsonContent = JSON.stringify(dataToExport, null, 2);
+      const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `google-leads-${timestamp}.json`;
+      link.click();
+
+    } else if (format === 'pdf') {
+      // PDF Export (simple HTML to PDF)
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        const htmlContent = `
+          <html>
+            <head>
+              <title>Google Leads Export - ${timestamp}</title>
+              <style>
+                body { font-family: Arial, sans-serif; margin: 20px; }
+                h1 { color: #333; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                th { background-color: #f2f2f2; }
+                .new-lead { background-color: #e8f5e8; }
+                .existing-lead { background-color: #ffe8e8; }
+              </style>
+            </head>
+            <body>
+              <h1>Google Leads Export</h1>
+              <p>Generated on: ${new Date().toLocaleString()}</p>
+              <p>Total leads: ${dataToExport.length}</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Address</th>
+                    <th>Phone</th>
+                    <th>Website</th>
+                    <th>City</th>
+                    <th>Country</th>
+                    <th>Positions</th>
+                    <th>Rating</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${dataToExport.map(lead => `
+                    <tr class="${lead.isNew ? 'new-lead' : 'existing-lead'}">
+                      <td>${lead.name}</td>
+                      <td>${lead.address}</td>
+                      <td>${lead.phone}</td>
+                      <td>${lead.website}</td>
+                      <td>${lead.city}</td>
+                      <td>${lead.country}</td>
+                      <td>${lead.estimatedPositions}</td>
+                      <td>${lead.rating}/5 (${lead.reviewCount} reviews)</td>
+                      <td>${lead.isNew ? 'New Lead' : 'Already in CRM'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </body>
+          </html>
+        `;
+
+        printWindow.document.write(htmlContent);
+        printWindow.document.close();
+        printWindow.print();
+      }
+    }
+
+    toast.success(`Exported ${dataToExport.length} leads as ${format.toUpperCase()}`);
   };
 
   const filteredResults = results.filter(lead => {
@@ -431,6 +639,92 @@ export default function GoogleLeadFinder() {
                   </Button>
                 </div>
 
+                {/* Select Only New Button */}
+                {summary && summary.new > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSelectOnlyNew}
+                    className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                  >
+                    <CheckCircle className="w-4 h-4 mr-2" />
+                    Select Only New ({summary.new})
+                  </Button>
+                )}
+
+                {/* Auto-Select New Leads Button */}
+                {summary && summary.new > 0 && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => {
+                      const newLeadIds = new Set(results.filter(lead => lead.isNew).map(lead => lead.placeId));
+                      setSelectedLeads(newLeadIds);
+                      toast.success(`Auto-selected ${newLeadIds.size} new leads for bulk import`);
+                    }}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Auto-Select New Leads ({summary.new})
+                  </Button>
+                )}
+
+                {/* Export Buttons */}
+                {results.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport('csv')}
+                      className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Export CSV
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport('json')}
+                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Export JSON
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleExport('pdf')}
+                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Export PDF
+                    </Button>
+                  </div>
+                )}
+
+                {/* Run Duplicate Check Button */}
+                {results.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRunDuplicateCheck}
+                    disabled={runningDuplicateCheck}
+                    className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                  >
+                    {runningDuplicateCheck ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Checking...
+                      </>
+                    ) : (
+                      <>
+                        <Search className="w-4 h-4 mr-2" />
+                        Run Duplicate Check
+                      </>
+                    )}
+                  </Button>
+                )}
+
                 {/* Clear List Button */}
                 <Button
                   variant="outline"
@@ -443,6 +737,27 @@ export default function GoogleLeadFinder() {
                 </Button>
               </div>
             </div>
+
+            {/* Summary Statistics */}
+            {summary && (
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <h4 className="text-sm font-semibold text-blue-900 mb-2">CRM Analysis Summary</h4>
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{summary.total}</div>
+                    <div className="text-xs text-blue-700">Total Leads</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">{summary.new}</div>
+                    <div className="text-xs text-green-700">New Leads</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-orange-600">{summary.existing}</div>
+                    <div className="text-xs text-orange-700">Already in CRM</div>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {/* Bulk Actions */}
@@ -513,12 +828,17 @@ export default function GoogleLeadFinder() {
                         checked={selectedLeads.has(lead.placeId)}
                         onCheckedChange={(checked) => handleSelectLead(lead.placeId, checked as boolean)}
                       />
-                      {lead.isInCRM && (
+                      {lead.existsInCRM ? (
+                        <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-800">
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Already in CRM
+                        </Badge>
+                      ) : lead.isNew ? (
                         <Badge variant="secondary" className="text-xs bg-green-100 text-green-800">
                           <CheckCircle className="w-3 h-3 mr-1" />
-                          In CRM
+                          New Lead
                         </Badge>
-                      )}
+                      ) : null}
                     </div>
                     <div className="flex-1 space-y-2">
                       <h3 className="text-lg font-semibold text-gray-900">{lead.name}</h3>

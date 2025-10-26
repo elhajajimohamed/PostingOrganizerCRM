@@ -1,0 +1,16 @@
+{
+  "validationPassed": true,
+  "results": {
+    "call-centers": {
+      "oldCount": 0,
+      "newCount": 0,
+      "match": true
+    },
+    "daily-calls": {
+      "oldCount": 0,
+      "newCount": 0,
+      "match": true
+    }
+  },
+  "timestamp": "2025-10-26T17:50:18.872Z"
+}
