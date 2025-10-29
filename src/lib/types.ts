@@ -30,6 +30,7 @@ export interface FacebookGroup {
   lastPostAt?: Date;
   warningCount: number;
   accountId?: string; // Link to Facebook account
+  memberCount?: number; // Number of members in the group
   createdAt: Date;
   updatedAt: Date;
   // Enhanced group state for cross-account awareness
@@ -197,6 +198,7 @@ export interface CreateGroupData {
   tags: string[];
   language: string;
   accountId?: string;
+  memberCount?: number;
 }
 
 export interface CreateTemplateData {

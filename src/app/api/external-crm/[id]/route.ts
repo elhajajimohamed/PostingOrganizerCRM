@@ -57,8 +57,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const callCenterId = parseInt(id);
-    await ExternalCRMService.deleteCallCenter(callCenterId);
+    await ExternalCRMService.deleteCallCenter(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {

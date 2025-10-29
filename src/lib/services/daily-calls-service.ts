@@ -285,8 +285,9 @@ export class DailyCallsService {
       sixteenDaysAgo.setDate(sixteenDaysAgo.getDate() - 16);
 
       const eligibleCallCenters = callCenters.filter(cc => {
-        // Exclude if no phones available
-        if (!cc.phones || cc.phones.length === 0) return false;
+        // For lead generation, we want call centers WITHOUT phones (to add them)
+        // So we exclude call centers that already have phones
+        if (cc.phones && cc.phones.length > 0) return false;
 
         // Exclude if has steps (as per requirements)
         if (cc.steps && cc.steps.length > 0) return false;

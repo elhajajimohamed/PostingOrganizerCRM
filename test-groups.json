@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Tech Entrepreneurs Network",
+    "url": "https://www.facebook.com/groups/tech-entrepreneurs-network",
+    "memberCount": 15420,
+    "tags": ["technology", "startup", "business"],
+    "language": "English"
+  },
+  {
+    "name": "Digital Marketing Experts",
+    "url": "https://www.facebook.com/groups/digital-marketing-experts",
+    "memberCount": 8750,
+    "tags": ["marketing", "digital", "social media"],
+    "language": "English"
+  },
+  {
+    "name": "Freelancers Community",
+    "url": "https://www.facebook.com/groups/freelancers-community",
+    "memberCount": 23100,
+    "tags": ["freelance", "remote work", "gig economy"],
+    "language": "English"
+  }
+]

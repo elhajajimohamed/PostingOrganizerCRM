@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Test Call Center",
+    "country": "Morocco",
+    "city": "Casablanca",
+    "positions": 25,
+    "status": "New",
+    "phones": [
+      "+212 6 12 34 56 78"
+    ],
+    "emails": [],
+    "website": "",
+    "address": "Test Address",
+    "tags": [],
+    "notes": "Test call center"
+  }
+]

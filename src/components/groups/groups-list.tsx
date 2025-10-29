@@ -11,6 +11,7 @@ import { GroupService } from '@/lib/services/group-service';
 import { AccountService } from '@/lib/services/account-service';
 import { GroupForm } from './group-form';
 import { CSVImport } from './csv-import';
+import { JSONImport } from './json-import';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +30,7 @@ export function GroupsList() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showJSONImport, setShowJSONImport] = useState(false);
   const [editingGroup, setEditingGroup] = useState<FacebookGroup | undefined>();
   const [deletingGroup, setDeletingGroup] = useState<FacebookGroup | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -116,6 +118,17 @@ export function GroupsList() {
   // Handle import cancel
   const handleImportCancel = () => {
     setShowImport(false);
+  };
+
+  // Handle JSON import success
+  const handleJSONImportSuccess = () => {
+    setShowJSONImport(false);
+    loadGroups();
+  };
+
+  // Handle JSON import cancel
+  const handleJSONImportCancel = () => {
+    setShowJSONImport(false);
   };
 
   // Handle edit
@@ -270,6 +283,15 @@ export function GroupsList() {
     );
   }
 
+  if (showJSONImport) {
+    return (
+      <JSONImport
+        onImportSuccess={handleJSONImportSuccess}
+        onCancel={handleJSONImportCancel}
+      />
+    );
+  }
+
   // Show accounts overview when no account is selected
   if (currentView === 'accounts') {
     return (
@@ -293,6 +315,16 @@ export function GroupsList() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
               </svg>
               Import CSV
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setShowJSONImport(true)}
+              className="hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 transition-all duration-200"
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              Import JSON
             </Button>
             <Button
               onClick={() => setShowForm(true)}
@@ -581,6 +613,16 @@ export function GroupsList() {
                  <h3 className="font-semibold text-gray-800">{account.name}</h3>
                  <p className="text-sm text-gray-600">{filteredGroups.length} groups</p>
                </div>
+               <Button
+                 variant="outline"
+                 onClick={() => setShowJSONImport(true)}
+                 className="hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 transition-all duration-200 ml-4"
+               >
+                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                 </svg>
+                 Import JSON
+               </Button>
              </>
            ) : null;
          })()}

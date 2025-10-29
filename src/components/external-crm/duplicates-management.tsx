@@ -19,7 +19,10 @@ import {
   Filter,
   Download,
   Eye,
-  EyeOff
+  EyeOff,
+  Phone,
+  Edit,
+  PhoneOff
 } from 'lucide-react';
 import {
   DuplicateDetectionService,
@@ -31,7 +34,7 @@ interface DuplicatesManagementProps {
   onRefresh?: () => void;
 }
 
-type ViewMode = 'groups' | 'individual';
+type ViewMode = 'groups' | 'individual' | 'no-phone';
 type FilterType = 'all' | 'exact' | 'high' | 'medium' | 'low';
 
 export function DuplicatesManagement({ onRefresh }: DuplicatesManagementProps) {
@@ -45,6 +48,9 @@ export function DuplicatesManagement({ onRefresh }: DuplicatesManagementProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
   const [showOnlySelected, setShowOnlySelected] = useState(false);
+  const [noPhoneCallCenters, setNoPhoneCallCenters] = useState<any[]>([]);
+  const [selectedNoPhone, setSelectedNoPhone] = useState<string[]>([]);
+  const [loadingNoPhone, setLoadingNoPhone] = useState(false);
 
   // Analysis results
   const [analysisResults, setAnalysisResults] = useState<{
@@ -62,6 +68,7 @@ export function DuplicatesManagement({ onRefresh }: DuplicatesManagementProps) {
   useEffect(() => {
     console.log('🔍 [DUPLICATES-MANAGEMENT] Component mounted, starting initial analysis...');
     analyzeDatabase();
+    loadNoPhoneCallCenters();
   }, []);
 
   const analyzeDatabase = async () => {
@@ -177,6 +184,127 @@ export function DuplicatesManagement({ onRefresh }: DuplicatesManagementProps) {
     } catch (error) {
       console.error('❌ [DUPLICATES-MANAGEMENT] Error during bulk merge:', error);
       alert('Failed to merge duplicates');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadNoPhoneCallCenters = async () => {
+    setLoadingNoPhone(true);
+    try {
+      console.log('🔍 [DUPLICATES-MANAGEMENT] Loading call centers without phone numbers...');
+
+      const response = await fetch('/api/external-crm/no-phone');
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to load no-phone call centers');
+      }
+
+      setNoPhoneCallCenters(data.data || []);
+      console.log(`✅ [DUPLICATES-MANAGEMENT] Loaded ${data.data?.length || 0} call centers without phone numbers`);
+
+    } catch (error) {
+      console.error('❌ [DUPLICATES-MANAGEMENT] Error loading no-phone call centers:', error);
+      setNoPhoneCallCenters([]);
+    } finally {
+      setLoadingNoPhone(false);
+    }
+  };
+
+  const handleNoPhoneSelect = (id: string, selected: boolean) => {
+    setSelectedNoPhone(prev => {
+      const newSelection = selected
+        ? [...prev, id]
+        : prev.filter(selectedId => selectedId !== id);
+      return newSelection;
+    });
+  };
+
+  const handleSelectAllNoPhone = (selected: boolean) => {
+    const newSelection = selected ? noPhoneCallCenters.map(cc => cc.id) : [];
+    setSelectedNoPhone(newSelection);
+  };
+
+  const handleBulkDeleteNoPhone = async () => {
+    if (selectedNoPhone.length === 0) {
+      alert('Please select call centers to delete');
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${selectedNoPhone.length} call centers without phone numbers? This action cannot be undone.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      console.log('🗑️ [DUPLICATES-MANAGEMENT] Starting bulk delete of no-phone call centers...');
+
+      const response = await fetch('/api/external-crm/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', callCenterIds: selectedNoPhone })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`API error: ${response.status} - ${errorData.error || 'Unknown error'}`);
+      }
+
+      const data = await response.json();
+
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to delete call centers');
+      }
+
+      console.log(`✅ [DUPLICATES-MANAGEMENT] Successfully deleted ${selectedNoPhone.length} call centers`);
+      alert(`Successfully deleted ${selectedNoPhone.length} call centers without phone numbers`);
+      setSelectedNoPhone([]);
+      await loadNoPhoneCallCenters(); // Refresh no-phone list
+      await analyzeDatabase(); // Refresh analysis
+      onRefresh?.();
+
+    } catch (error) {
+      console.error('❌ [DUPLICATES-MANAGEMENT] Error during bulk delete:', error);
+      alert(`Failed to delete call centers: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditNoPhone = (callCenter: any) => {
+    // This would typically open a modal or navigate to edit page
+    console.log('✏️ [DUPLICATES-MANAGEMENT] Edit call center:', callCenter);
+    alert(`Edit functionality for ${callCenter.name} would open here`);
+  };
+
+  const handleDeleteNoPhone = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/external-crm/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      console.log(`✅ [DUPLICATES-MANAGEMENT] Successfully deleted call center: ${name}`);
+      await loadNoPhoneCallCenters(); // Refresh no-phone list
+      await analyzeDatabase(); // Refresh analysis
+      onRefresh?.();
+
+    } catch (error) {
+      console.error('❌ [DUPLICATES-MANAGEMENT] Error deleting call center:', error);
+      alert(`Failed to delete call center: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -388,14 +516,16 @@ export function DuplicatesManagement({ onRefresh }: DuplicatesManagementProps) {
                 size="sm"
                 onClick={() => setViewMode('groups')}
               >
-                Groups View
+                <AlertTriangle className="w-4 h-4 mr-2" />
+                Duplicates
               </Button>
               <Button
-                variant={viewMode === 'individual' ? 'default' : 'outline'}
+                variant={viewMode === 'no-phone' ? 'default' : 'outline'}
                 size="sm"
-                onClick={() => setViewMode('individual')}
+                onClick={() => setViewMode('no-phone')}
               >
-                Individual View
+                <PhoneOff className="w-4 h-4 mr-2" />
+                No Phone Numbers
               </Button>
             </div>
 
@@ -436,12 +566,12 @@ export function DuplicatesManagement({ onRefresh }: DuplicatesManagementProps) {
           </div>
 
           {/* Bulk Actions */}
-          {(selectedGroups.length > 0 || selectedDuplicates.length > 0) && (
+          {(selectedGroups.length > 0 || selectedDuplicates.length > 0 || selectedNoPhone.length > 0) && (
             <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                    {selectedGroups.length} groups, {selectedDuplicates.length} duplicates selected
+                    {selectedGroups.length} groups, {selectedDuplicates.length} duplicates, {selectedNoPhone.length} no-phone selected
                   </Badge>
                   <span className="text-sm text-blue-700">
                     Choose an action to apply to selected items
@@ -454,6 +584,7 @@ export function DuplicatesManagement({ onRefresh }: DuplicatesManagementProps) {
                     onClick={() => {
                       setSelectedGroups([]);
                       setSelectedDuplicates([]);
+                      setSelectedNoPhone([]);
                     }}
                   >
                     Clear Selection
@@ -481,6 +612,18 @@ export function DuplicatesManagement({ onRefresh }: DuplicatesManagementProps) {
                       Delete Duplicates
                     </Button>
                   )}
+                  {selectedNoPhone.length > 0 && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleBulkDeleteNoPhone}
+                      disabled={loading}
+                      className="bg-red-600 hover:bg-red-700"
+                    >
+                      <PhoneOff className="w-4 h-4 mr-2" />
+                      Delete No-Phone Centers
+                    </Button>
+                  )}
                 </div>
               </div>
             </div>
@@ -489,7 +632,99 @@ export function DuplicatesManagement({ onRefresh }: DuplicatesManagementProps) {
       </Card>
 
       {/* Results */}
-      {filteredGroups.length === 0 ? (
+      {viewMode === 'no-phone' ? (
+        /* No Phone Numbers Section */
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <PhoneOff className="w-5 h-5" />
+                  Call Centers Without Phone Numbers
+                </CardTitle>
+                <Button onClick={loadNoPhoneCallCenters} disabled={loadingNoPhone} variant="outline">
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loadingNoPhone ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {loadingNoPhone ? (
+                <div className="text-center py-8">
+                  <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-4 text-blue-600" />
+                  <p>Loading call centers without phone numbers...</p>
+                </div>
+              ) : noPhoneCallCenters.length === 0 ? (
+                <div className="text-center py-8">
+                  <CheckCircle className="w-16 h-16 mx-auto text-green-500 mb-4" />
+                  <h3 className="text-lg font-medium mb-2">All Call Centers Have Phone Numbers</h3>
+                  <p className="text-gray-600">Great! All your call centers have contact information.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Select All for No Phone */}
+                  <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                    <Checkbox
+                      checked={selectedNoPhone.length === noPhoneCallCenters.length && noPhoneCallCenters.length > 0}
+                      onCheckedChange={(checked) => handleSelectAllNoPhone(!!checked)}
+                    />
+                    <span className="font-medium">Select All ({noPhoneCallCenters.length})</span>
+                  </div>
+
+                  {/* No Phone Call Centers List */}
+                  {noPhoneCallCenters.map((callCenter) => (
+                    <Card key={callCenter.id} className="border-orange-200 bg-orange-50">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <Checkbox
+                              checked={selectedNoPhone.includes(callCenter.id)}
+                              onCheckedChange={(checked) => handleNoPhoneSelect(callCenter.id, !!checked)}
+                            />
+                            <div>
+                              <div className="font-medium text-gray-900">{callCenter.name}</div>
+                              <div className="text-sm text-gray-600">
+                                {callCenter.city}, {callCenter.country} • {callCenter.positions} positions
+                              </div>
+                              {callCenter.email && (
+                                <div className="text-sm text-blue-600">{callCenter.email}</div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className="bg-orange-100 text-orange-800 border-orange-200">
+                              <PhoneOff className="w-3 h-3 mr-1" />
+                              No Phone
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditNoPhone(callCenter)}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteNoPhone(callCenter.id, callCenter.name)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              disabled={loading}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      ) : filteredGroups.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center">
             <CheckCircle className="w-16 h-16 mx-auto text-green-500 mb-4" />

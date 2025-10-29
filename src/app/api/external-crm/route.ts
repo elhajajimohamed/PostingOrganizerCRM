@@ -26,11 +26,14 @@ export async function GET(request: NextRequest) {
       direction: (searchParams.get('sortDirection') as 'asc' | 'desc') || 'desc',
     };
 
-    const offset = searchParams.get('offset') ? parseInt(searchParams.get('offset')!) : 0;
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 10;
+    const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1;
+    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 20;
     const loadAll = searchParams.get('all') === 'true';
 
-    console.log('🔍 API Route - Load config:', { offset, limit, loadAll, sort });
+    // Calculate offset from page number (page 1 = offset 0, page 2 = offset 20, etc.)
+    const offset = loadAll ? 0 : (page - 1) * limit;
+
+    console.log('🔍 API Route - Load config:', { page, offset, limit, loadAll, sort });
 
     const callCenters = await ExternalCRMService.getCallCenters(filters as any, sort, offset, loadAll ? undefined : limit);
     console.log('✅ API Route - Retrieved call centers:', callCenters.length);

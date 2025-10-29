@@ -36,9 +36,9 @@ import {
 interface CallCentersListProps {
   callCenters: CallCenter[];
   onEdit: (callCenter: CallCenter) => void;
-  onDelete: (id: number) => void;
-  onBatchDelete: (ids: number[]) => void;
-  onBatchTag: (ids: number[], tag: string) => void;
+  onDelete: (id: string) => void;
+  onBatchDelete: (ids: string[]) => void;
+  onBatchTag: (ids: string[], tag: string) => void;
   hasMore?: boolean;
   onLoadMore?: () => void;
   totalCount?: number;
@@ -71,7 +71,7 @@ export function CallCentersList({
   onSearch,
   onSearchComplete
 }: CallCentersListProps) {
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [bulkEditMode, setBulkEditMode] = useState(false);
@@ -316,10 +316,10 @@ export function CallCentersList({
   });
 
   const handleSelectAll = (checked: boolean) => {
-    setSelectedIds(checked ? sortedCallCenters.map(cc => typeof cc.id === 'string' ? parseInt(cc.id) : cc.id) : []);
+    setSelectedIds(checked ? sortedCallCenters.map(cc => cc.id.toString()) : []);
   };
 
-  const handleSelect = (id: number, checked: boolean) => {
+  const handleSelect = (id: string, checked: boolean) => {
     setSelectedIds(prev =>
       checked ? [...prev, id] : prev.filter(selectedId => selectedId !== id)
     );
@@ -342,7 +342,7 @@ export function CallCentersList({
   const handleBulkExport = (format: 'csv' | 'json' | 'excel' | 'pdf') => {
     // Get selected call centers data
     const selectedCallCenters = callCenters.filter(cc =>
-      selectedIds.includes(typeof cc.id === 'string' ? parseInt(cc.id) : cc.id)
+      selectedIds.includes(cc.id.toString())
     );
 
     if (selectedCallCenters.length === 0) {
@@ -1188,8 +1188,8 @@ ${index + 1}. ${cc.name}
                                <div className="flex-1 min-w-0">
                                  <div className="flex items-center gap-3 mb-2">
                                    <Checkbox
-                                     checked={selectedIds.includes(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}
-                                     onCheckedChange={(checked: boolean) => handleSelect(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id, checked)}
+                                     checked={selectedIds.includes(callCenter.id.toString())}
+                                     onCheckedChange={(checked: boolean) => handleSelect(callCenter.id.toString(), checked)}
                                    />
                                    <button
                                      className="text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer truncate"
@@ -1329,7 +1329,7 @@ ${index + 1}. ${cc.name}
                                  <Button
                                    variant="ghost"
                                    size="sm"
-                                   onClick={() => onDelete(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}
+                                   onClick={() => onDelete(callCenter.id.toString())}
                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                  >
                                    <Trash2 className="w-4 h-4" />
@@ -1351,8 +1351,8 @@ ${index + 1}. ${cc.name}
                          {/* Header with checkbox and status */}
                          <div className="flex items-start justify-between mb-4">
                            <Checkbox
-                             checked={selectedIds.includes(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}
-                             onCheckedChange={(checked: boolean) => handleSelect(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id, checked)}
+                             checked={selectedIds.includes(callCenter.id.toString())}
+                             onCheckedChange={(checked: boolean) => handleSelect(callCenter.id.toString(), checked)}
                              className="mt-1"
                            />
                            <Badge className={`${STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]} text-xs px-3 py-1 ml-auto`}>
@@ -1478,7 +1478,7 @@ ${index + 1}. ${cc.name}
                            <Button
                              variant="outline"
                              size="sm"
-                             onClick={() => onDelete(typeof callCenter.id === 'string' ? parseInt(callCenter.id) : callCenter.id)}
+                             onClick={() => onDelete(callCenter.id.toString())}
                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
                            >
                              <Trash2 className="w-4 h-4" />

@@ -3,18 +3,18 @@ const http = require('http');
 
 async function importCallCenters() {
   try {
-    console.log('Reading CRMDATA.json...');
-    const data = JSON.parse(fs.readFileSync('C:/Users/Mamado PAYCI/Downloads/CRMDATA.json', 'utf8'));
+    console.log('Reading test-call-centers.json...');
+    const callCenters = JSON.parse(fs.readFileSync('test-call-centers.json', 'utf8'));
 
-    console.log(`Found ${data.callCenters.length} call centers to import`);
+    console.log(`Found ${callCenters.length} call centers to import`);
 
     // Import in batches of 50 to avoid overwhelming the server
     const batchSize = 50;
     let imported = 0;
     let errors = 0;
 
-    for (let i = 0; i < data.callCenters.length; i += batchSize) {
-      const batch = data.callCenters.slice(i, i + batchSize);
+    for (let i = 0; i < callCenters.length; i += batchSize) {
+      const batch = callCenters.slice(i, i + batchSize);
       console.log(`Importing batch ${Math.floor(i / batchSize) + 1} (${batch.length} call centers)...`);
 
       try {

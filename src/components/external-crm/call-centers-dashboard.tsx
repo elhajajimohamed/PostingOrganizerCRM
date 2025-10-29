@@ -32,6 +32,7 @@ interface CallCentersDashboardProps {
   callCenters: CallCenter[];
   loading?: boolean;
   totalCount?: number;
+  user?: any; // Add user prop to check authentication
 }
 
 const STATUS_COLORS = {
@@ -47,7 +48,7 @@ const STATUS_COLORS = {
 
 const STATUS_ORDER = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Closed-Won', 'Closed-Lost', 'On-Hold'];
 
-export function CallCentersDashboard({ callCenters, loading = false, totalCount = 0 }: CallCentersDashboardProps) {
+export function CallCentersDashboard({ callCenters, loading = false, totalCount = 0, user }: CallCentersDashboardProps) {
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter'>('month');
   const [allSteps, setAllSteps] = useState<Array<Step & { callCenterId: string; callCenterName?: string }>>([]);
   const [allContacts, setAllContacts] = useState<Array<Contact & { callCenterId: string; callCenterName?: string }>>([]);
@@ -57,20 +58,35 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
 
   // Load real dashboard statistics and cross-section data
   useEffect(() => {
+    // Only load data if user is authenticated and not loading
+    if (!user?.uid) {
+      console.log('📊 Dashboard: Waiting for user authentication...');
+      return;
+    }
+
+    console.log('📊 Dashboard: User authenticated, loading data...');
+    console.log('📊 Dashboard: User object:', user);
+
     const loadDashboardData = async () => {
       setLoadingStats(true);
       try {
         // Load real statistics from Firebase
+        console.log('📊 Dashboard: Loading statistics from /api/external-crm/dashboard');
         const statsResponse = await fetch('/api/external-crm/dashboard');
+        console.log('📊 Dashboard: Response status:', statsResponse.status);
         if (statsResponse.ok) {
           const statsData = await statsResponse.json();
+          console.log('📊 Dashboard: Statistics data received:', statsData);
           setRealStats(statsData);
           console.log('📊 Real dashboard statistics loaded:', statsData);
         } else {
-          console.error('Failed to load dashboard statistics');
+          const errorText = await statsResponse.text();
+          console.error('📊 Dashboard: Failed to load dashboard statistics:', statsResponse.status, statsResponse.statusText, errorText);
+          // Don't set realStats to null, keep previous data if available
         }
       } catch (error) {
-        console.error('Error loading dashboard statistics:', error);
+        console.error('📊 Dashboard: Error loading dashboard statistics:', error);
+        // Don't set realStats to null, keep previous data if available
       } finally {
         setLoadingStats(false);
       }
@@ -96,6 +112,9 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
         setAllContacts(contactsData.contacts.slice(0, 10) as Array<Contact & { callCenterId: string; callCenterName?: string }>);
       } catch (error) {
         console.error('Error loading cross-section data:', error);
+        // Set empty arrays on error to prevent infinite loading
+        setAllSteps([]);
+        setAllContacts([]);
       } finally {
         setLoadingCrossSection(false);
       }
@@ -103,11 +122,13 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
 
     loadDashboardData();
     loadCrossSectionData();
-  }, [callCenters]);
+  }, [callCenters, user?.uid]);
 
   // Use real statistics from Firebase if available, otherwise fall back to calculated stats
   const stats = useMemo(() => {
+    console.log('📊 Dashboard: Calculating stats, realStats available:', !!realStats, realStats);
     if (realStats) {
+      console.log('📊 Dashboard: Using real stats:', realStats);
       return {
         total: realStats.totalCallCenters,
         active: realStats.activeCallCenters,
@@ -209,6 +230,10 @@ export function CallCentersDashboard({ callCenters, loading = false, totalCount 
               </CardContent>
             </Card>
           ))}
+        </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard data...</p>
         </div>
       </div>
     );

@@ -57,28 +57,21 @@ export class ExternalCRMService {
         limitParam
       });
 
-      const constraints: QueryConstraint[] = [];
+      // For pagination, we need to fetch all documents and slice them client-side
+      // since Firestore doesn't support efficient offset-based pagination
+      const allConstraints: QueryConstraint[] = [];
 
-      // Allow unlimited queries when limitParam is explicitly undefined (for total count)
-      const limitValue = limitParam !== undefined ? Math.min(limitParam || 50, 100) : undefined;
-
-      // For single-user VoIP sales, prioritize active/recent call centers
       // Use simple ordering to avoid composite index requirements
-      constraints.push(orderBy('createdAt', 'desc'));
+      allConstraints.push(orderBy('createdAt', 'desc'));
 
       // Apply basic filters only - avoid complex queries that need indexes
       if (filters?.status && ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation'].includes(filters.status)) {
-        constraints.push(where('status', '==', filters.status));
+        allConstraints.push(where('status', '==', filters.status));
       }
 
-      // Only apply limit if limitValue is defined
-      if (limitValue !== undefined) {
-        constraints.push(limit(limitValue));
-      }
+      console.log('🔍 ExternalCRMService - Building query with constraints:', allConstraints.length);
 
-      console.log('🔍 ExternalCRMService - Building query with constraints:', constraints.length);
-
-      const q = query(collection(db, COLLECTION_NAMES.CALL_CENTERS), ...constraints);
+      const q = query(collection(db, COLLECTION_NAMES.CALL_CENTERS), ...allConstraints);
       console.log('🔍 ExternalCRMService - Executing query...');
 
       const querySnapshot = await getDocs(q);
@@ -124,12 +117,12 @@ export class ExternalCRMService {
         const originalCount = callCenters.length;
         callCenters = callCenters.filter(callCenter => {
           const matches = callCenter.name.toLowerCase().includes(searchTerm) ||
-                 callCenter.city.toLowerCase().includes(searchTerm) ||
-                 callCenter.country.toLowerCase().includes(searchTerm) ||
-                 (callCenter.email && callCenter.email.toLowerCase().includes(searchTerm)) ||
-                 (callCenter.notes && typeof callCenter.notes === 'string' && String(callCenter.notes).toLowerCase().includes(searchTerm)) ||
-                 callCenter.tags?.some(tag => tag.toLowerCase().includes(searchTerm)) ||
-                 callCenter.phones?.some(phone => phone.includes(searchTerm));
+                  callCenter.city.toLowerCase().includes(searchTerm) ||
+                  callCenter.country.toLowerCase().includes(searchTerm) ||
+                  (callCenter.email && callCenter.email.toLowerCase().includes(searchTerm)) ||
+                  (callCenter.notes && typeof callCenter.notes === 'string' && String(callCenter.notes).toLowerCase().includes(searchTerm)) ||
+                  callCenter.tags?.some(tag => tag.toLowerCase().includes(searchTerm)) ||
+                  callCenter.phones?.some(phone => phone.includes(searchTerm));
 
           if (matches) {
             console.log('✅ ExternalCRMService - Match found:', callCenter.name);
@@ -139,6 +132,13 @@ export class ExternalCRMService {
         });
 
         console.log('✅ ExternalCRMService - Search filtered from', originalCount, 'to', callCenters.length, 'results');
+      }
+
+      // Apply pagination after filtering
+      if (offset !== undefined && limitParam !== undefined) {
+        console.log('🔍 ExternalCRMService - Applying pagination: offset', offset, 'limit', limitParam);
+        callCenters = callCenters.slice(offset, offset + limitParam);
+        console.log('✅ ExternalCRMService - After pagination:', callCenters.length, 'call centers');
       }
 
       console.log('✅ ExternalCRMService - Returning call centers:', callCenters.length);
@@ -169,15 +169,34 @@ export class ExternalCRMService {
         ]);
 
         return {
-          id: typeof id === 'string' ? parseInt(docSnap.id) : id,
-          ...data,
-          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          id: docSnap.id,
+          name: data.name || '',
+          country: data.country || '',
+          city: data.city || '',
+          positions: data.positions || 0,
+          status: data.status || 'New',
+          value: data.value || 0,
+          currency: data.currency || 'USD',
+          phones: data.phones || [],
+          phone_infos: data.phone_infos || [],
+          emails: data.emails || [],
+          website: data.website || '',
+          address: data.address || '',
+          source: data.source || '',
+          type: data.type || '',
+          tags: data.tags || [],
+          markets: data.markets || [],
+          competitors: data.competitors || [],
+          socialMedia: data.socialMedia || [],
+          foundDate: data.foundDate || '',
           lastContacted: data.lastContacted?.toDate?.()?.toISOString() || data.lastContacted,
+          notes: data.notes || '',
+          createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
           contacts,
           steps,
           callHistory,
           recharges,
-          phone_infos: data.phone_infos || [],
         } as CallCenter;
       }
       return null;
@@ -189,24 +208,52 @@ export class ExternalCRMService {
 
   static async createCallCenter(callCenter: Omit<CallCenter, 'id' | 'createdAt'>): Promise<number> {
     try {
+      console.log('🔍 [CREATE] Creating call center with data:', callCenter);
+
       // Run phone detection on phones
       let phoneInfos: PhoneInfo[] = [];
       if (callCenter.phones && callCenter.phones.length > 0) {
         phoneInfos = callCenter.phones.map(phone => PhoneDetectionService.detectPhone(phone, callCenter.country));
       }
 
-      const callCenterWithInfo = { ...callCenter, phone_infos: phoneInfos };
+      // Ensure all required fields are present and correctly typed
+      const callCenterData = {
+        name: callCenter.name || '',
+        country: callCenter.country || 'Morocco',
+        city: callCenter.city || '',
+        positions: callCenter.positions || 0,
+        status: callCenter.status || 'New',
+        value: callCenter.value || 0,
+        currency: callCenter.currency || 'USD',
+        phones: Array.isArray(callCenter.phones) ? callCenter.phones : [],
+        phone_infos: phoneInfos,
+        emails: Array.isArray(callCenter.emails) ? callCenter.emails : [],
+        website: callCenter.website || '',
+        address: callCenter.address || '',
+        source: callCenter.source || '',
+        type: callCenter.type || '',
+        tags: Array.isArray(callCenter.tags) ? callCenter.tags : [],
+        markets: Array.isArray(callCenter.markets) ? callCenter.markets : [],
+        competitors: Array.isArray(callCenter.competitors) ? callCenter.competitors : [],
+        socialMedia: Array.isArray(callCenter.socialMedia) ? callCenter.socialMedia : [],
+        foundDate: callCenter.foundDate || '',
+        notes: callCenter.notes || '',
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log('📝 [CREATE] Final call center data to save:', callCenterData);
 
       // Development mode: Try without authentication first
       const docRef = await addDoc(collection(db, COLLECTION_NAMES.CALL_CENTERS), {
-        ...callCenterWithInfo,
+        ...callCenterData,
         createdAt: Timestamp.now(),
         lastContacted: callCenter.lastContacted ? Timestamp.fromDate(new Date(callCenter.lastContacted)) : null,
       });
 
+      console.log('✅ [CREATE] Call center created with ID:', docRef.id);
       return parseInt(docRef.id);
     } catch (error) {
-      console.error('Error creating call center:', error);
+      console.error('❌ [CREATE] Error creating call center:', error);
       // If permission denied, suggest logging in or updating Firestore rules
       if (error instanceof Error && error.message.includes('permission-denied')) {
         console.error('Permission denied. Please ensure you are logged in or update Firestore rules to allow unauthenticated access for development.');
@@ -239,7 +286,7 @@ export class ExternalCRMService {
     }
   }
 
-  static async deleteCallCenter(id: number): Promise<void> {
+  static async deleteCallCenter(id: string | number): Promise<void> {
     try {
       await deleteDoc(doc(db, COLLECTION_NAMES.CALL_CENTERS, id.toString()));
     } catch (error) {
@@ -249,32 +296,53 @@ export class ExternalCRMService {
   }
 
   // Batch operations for call centers
-  static async batchDeleteCallCenters(callCenterIds: number[]): Promise<ApiResponse<void>> {
+  static async batchDeleteCallCenters(callCenterIds: (number | string)[]): Promise<ApiResponse<void>> {
     try {
+      console.log('🔍 [BATCH-DELETE] Starting batch delete with IDs:', callCenterIds);
+
       const batch = writeBatch(db);
       let deletedCount = 0;
 
       for (const id of callCenterIds) {
-        const docRef = doc(db, COLLECTION_NAMES.CALL_CENTERS, id.toString());
+        // Handle null/undefined IDs
+        if (id === null || id === undefined) {
+          console.log('⚠️ [BATCH-DELETE] Skipping null/undefined ID');
+          continue;
+        }
+
+        // Handle both string IDs (Firebase document IDs) and numeric IDs
+        const docId = typeof id === 'string' ? id : id.toString();
+        console.log(`🗑️ [BATCH-DELETE] Deleting document with ID: ${docId}`);
+
+        const docRef = doc(db, COLLECTION_NAMES.CALL_CENTERS, docId);
         batch.delete(docRef);
         deletedCount++;
       }
 
-      await batch.commit();
+      if (deletedCount > 0) {
+        console.log(`🔄 [BATCH-DELETE] Committing batch delete of ${deletedCount} documents`);
+        await batch.commit();
+        console.log('✅ [BATCH-DELETE] Batch delete completed successfully');
+      } else {
+        console.log('⚠️ [BATCH-DELETE] No valid IDs to delete');
+      }
+
       return { success: true, deleted: deletedCount };
     } catch (error) {
-      console.error('Error batch deleting call centers:', error);
+      console.error('❌ [BATCH-DELETE] Error batch deleting call centers:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
 
-  static async batchUpdateCallCenters(updates: { id: number; changes: Partial<CallCenter> }[]): Promise<ApiResponse<void>> {
+  static async batchUpdateCallCenters(updates: { id: number | string; changes: Partial<CallCenter> }[]): Promise<ApiResponse<void>> {
     try {
       const batch = writeBatch(db);
       let updatedCount = 0;
 
       for (const update of updates) {
-        const docRef = doc(db, COLLECTION_NAMES.CALL_CENTERS, update.id.toString());
+        // Handle both string IDs (Firebase document IDs) and numeric IDs
+        const docId = typeof update.id === 'string' ? update.id : update.id.toString();
+        const docRef = doc(db, COLLECTION_NAMES.CALL_CENTERS, docId);
         const updateData: Record<string, any> = { ...update.changes };
 
         if (update.changes.lastContacted) {
@@ -293,13 +361,15 @@ export class ExternalCRMService {
     }
   }
 
-  static async batchTagCallCenters(callCenterIds: number[], tag: string): Promise<ApiResponse<void>> {
+  static async batchTagCallCenters(callCenterIds: (number | string)[], tag: string): Promise<ApiResponse<void>> {
     try {
       const batch = writeBatch(db);
       let taggedCount = 0;
 
       for (const id of callCenterIds) {
-        const docRef = doc(db, COLLECTION_NAMES.CALL_CENTERS, id.toString());
+        // Handle both string IDs (Firebase document IDs) and numeric IDs
+        const docId = typeof id === 'string' ? id : id.toString();
+        const docRef = doc(db, COLLECTION_NAMES.CALL_CENTERS, docId);
         const updateData = {
           tags: [tag], // Simplified - just set tags array with the new tag
           lastUpdated: Timestamp.now(),
@@ -384,7 +454,7 @@ export class ExternalCRMService {
         const centerIds = data.centerIds || [];
 
         // Check if cache has invalid data (NaN values, mixed types, or duplicates)
-        const hasInvalidData = centerIds.some(id =>
+        const hasInvalidData = centerIds.some((id: any) =>
           id === null ||
           id === undefined ||
           (typeof id === 'number' && isNaN(id)) ||
@@ -392,7 +462,7 @@ export class ExternalCRMService {
         );
 
         // Also check for duplicates in the cache
-        const uniqueIds = new Set(centerIds.filter(id => id !== null && id !== undefined));
+        const uniqueIds = new Set(centerIds.filter((id: any) => id !== null && id !== undefined));
         const hasDuplicates = uniqueIds.size !== centerIds.length;
 
         if (hasInvalidData || hasDuplicates) {

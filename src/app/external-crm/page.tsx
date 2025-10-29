@@ -63,7 +63,7 @@ interface DailyTask {
 }
 
 export default function ExternalCRMPage() {
-  const { user, logout } = useAuth();
+  const { user, logout, loading: authLoading } = useAuth();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeLeadFinderTab, setActiveLeadFinderTab] = useState<'google' | 'linkedin'>('google');
@@ -98,6 +98,12 @@ export default function ExternalCRMPage() {
     console.log('🚀 Initializing External CRM Page...');
     console.log('👤 Current user:', user);
     console.log('🔐 User authenticated:', !!user?.uid);
+    console.log('🔄 Auth loading:', authLoading);
+
+    if (authLoading) {
+      console.log('⏳ Auth still loading, waiting...');
+      return;
+    }
 
     if (!user?.uid) {
       console.log('❌ No authenticated user, redirecting to login');
@@ -105,10 +111,39 @@ export default function ExternalCRMPage() {
       return;
     }
 
+    console.log('✅ User authenticated, loading data...');
+
     // Load suggestions and daily tasks, but call centers are loaded separately
     loadSuggestions();
     loadDailyTasks();
-  }, [user?.uid, router]);
+    // Load call centers immediately when user is authenticated
+    loadCallCenters(true);
+  }, [user?.uid, router, authLoading]);
+
+  // Separate effect to handle data loading after authentication is confirmed
+  useEffect(() => {
+    if (user?.uid && !authLoading) {
+      console.log('🔄 User authenticated, ensuring data is loaded...');
+      // Force reload if needed
+      if (callCenters.length === 0) {
+        loadCallCenters(true);
+      }
+      if (suggestions.length === 0) {
+        loadSuggestions();
+      }
+    }
+  }, [user?.uid, authLoading]); // Removed callCenters.length and suggestions.length to prevent infinite loops
+
+  // Removed this effect as it's causing infinite loops - data loading is handled in the main auth effect
+
+  // Force load call centers when user is authenticated and we have no data
+  useEffect(() => {
+    if (user?.uid && !authLoading && callCenters.length === 0 && !loading) {
+      console.log('🔄 No call centers loaded, forcing reload...');
+      // Force immediate load without timeout
+      loadCallCenters(true);
+    }
+  }, [user?.uid, authLoading]); // Removed callCenters.length and loading from dependencies to prevent infinite loop
 
   const handleLogout = async () => {
     try {
@@ -720,6 +755,7 @@ export default function ExternalCRMPage() {
       const response = await fetch(`/api/external-crm?${params}`);
       if (response.ok) {
         const data = await response.json();
+        console.log('🔍 API Response:', data);
         const newCallCenters = data.data || [];
         const total = data.total || 0;
 
@@ -729,11 +765,18 @@ export default function ExternalCRMPage() {
         setTotalCount(total);
 
         if (reset || page === 1) {
-          setCallCenters(newCallCenters);
-          console.log(`🔄 Reset: Now showing ${newCallCenters.length} of ${total} total call centers`);
+          // Remove duplicates when resetting or loading first page
+          const uniqueCallCenters = newCallCenters.filter((newCC: CallCenter, index: number, arr: CallCenter[]) =>
+            arr.findIndex((cc: CallCenter) => cc.id === newCC.id) === index
+          );
+          setCallCenters(uniqueCallCenters);
+          console.log(`🔄 Reset: Now showing ${uniqueCallCenters.length} of ${total} total call centers`);
         } else {
-          setCallCenters(prev => [...prev, ...newCallCenters]);
-          console.log(`➕ Appended: Now showing ${callCenters.length + newCallCenters.length} of ${total} total call centers`);
+          // Remove duplicates when appending
+          const existingIds = new Set(callCenters.map(cc => cc.id));
+          const uniqueNewCallCenters = newCallCenters.filter((cc: CallCenter) => !existingIds.has(cc.id));
+          setCallCenters(prev => [...prev, ...uniqueNewCallCenters]);
+          console.log(`➕ Appended: Now showing ${callCenters.length + uniqueNewCallCenters.length} of ${total} total call centers`);
         }
 
         // Check if there are more pages (only if not searching)
@@ -750,18 +793,25 @@ export default function ExternalCRMPage() {
         }
       } else {
         console.error(`❌ Failed to load call centers: ${response.status} ${response.statusText}`);
+        // If API fails, try to load from cache or show error
+        if (reset) {
+          setCallCenters([]);
+          setTotalCount(0);
+        }
       }
     } catch (error) {
       console.error('❌ Error loading call centers:', error);
+      // If there's an error, ensure loading state is cleared
+      if (reset) {
+        setCallCenters([]);
+        setTotalCount(0);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Load all call centers initially (without search)
-  useEffect(() => {
-    loadCallCenters(true);
-  }, []);
+  // Load all call centers initially (without search) - removed since we load in auth useEffect
 
   const loadMoreCallCenters = async () => {
     if (hasMore && !loading) {
@@ -779,9 +829,13 @@ export default function ExternalCRMPage() {
       if (response.ok) {
         const data = await response.json();
         setSuggestions(data.data || []);
+      } else {
+        console.error('Failed to load suggestions:', response.status, response.statusText);
+        setSuggestions([]);
       }
     } catch (error) {
       console.error('Error loading suggestions:', error);
+      setSuggestions([]);
     }
   };
 
@@ -868,7 +922,7 @@ export default function ExternalCRMPage() {
     }
   };
 
-  const handleDeleteCallCenter = async (id: number) => {
+  const handleDeleteCallCenter = async (id: string) => {
     if (!confirm('Are you sure you want to delete this call center?')) return;
 
     try {
@@ -877,14 +931,14 @@ export default function ExternalCRMPage() {
       });
 
       if (response.ok) {
-        setCallCenters(prev => prev.filter(cc => cc.id !== id.toString()));
+        setCallCenters(prev => prev.filter(cc => cc.id !== id));
       }
     } catch (error) {
       console.error('Error deleting call center:', error);
     }
   };
 
-  const handleBatchDelete = async (ids: number[]) => {
+  const handleBatchDelete = async (ids: string[]) => {
     if (!confirm(`Are you sure you want to delete ${ids.length} call centers?`)) return;
 
     try {
@@ -895,14 +949,14 @@ export default function ExternalCRMPage() {
       });
 
       if (response.ok) {
-        setCallCenters(prev => prev.filter(cc => !ids.includes(parseInt(cc.id))));
+        setCallCenters(prev => prev.filter(cc => !ids.includes(cc.id)));
       }
     } catch (error) {
       console.error('Error batch deleting call centers:', error);
     }
   };
 
-  const handleBatchTag = async (ids: number[], tag: string) => {
+  const handleBatchTag = async (ids: string[], tag: string) => {
     try {
       const response = await fetch('/api/external-crm/batch', {
         method: 'POST',
@@ -913,7 +967,7 @@ export default function ExternalCRMPage() {
       if (response.ok) {
         // Update the call centers with the new tag
         setCallCenters(prev => prev.map(cc =>
-          ids.includes(parseInt(cc.id))
+          ids.includes(cc.id)
             ? { ...cc, tags: [...(cc.tags || []), tag] }
             : cc
         ));
@@ -1135,7 +1189,7 @@ const handleEdit = (callCenter: CallCenter) => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <CallCentersDashboard callCenters={callCenters} loading={loading} totalCount={totalCount} />;
+        return <CallCentersDashboard callCenters={callCenters} loading={loading} totalCount={totalCount} user={user} />;
 
       case 'call-centers':
         return (
@@ -1636,14 +1690,16 @@ const handleEdit = (callCenter: CallCenter) => {
   console.log('📋 Call centers count:', callCenters.length);
   console.log('📝 Suggestions count:', suggestions.length);
 
-  // Show loading indicator if still loading
-  if (loading) {
-    console.log('⏳ Showing loading indicator');
+  // Show loading indicator if still loading OR if user is not authenticated
+  if (loading || !user?.uid) {
+    console.log('⏳ Showing loading indicator (loading:', loading, 'user:', !!user?.uid, ')');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading CRM...</p>
+          <p className="text-gray-600">
+            {!user?.uid ? 'Authenticating...' : 'Loading CRM...'}
+          </p>
         </div>
       </div>
     );
