@@ -1689,6 +1689,7 @@ const handleEdit = (callCenter: CallCenter) => {
   console.log('🏷️ Active tab:', activeTab);
   console.log('📋 Call centers count:', callCenters.length);
   console.log('📝 Suggestions count:', suggestions.length);
+  console.log('🔍 DEBUG: Component rendered at', new Date().toISOString());
 
   // Show loading indicator if still loading OR if user is not authenticated
   if (loading || !user?.uid) {
