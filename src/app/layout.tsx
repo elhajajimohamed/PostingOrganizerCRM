@@ -1,22 +1,28 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
+import { NotificationProvider } from "@/lib/notification-context";
+import { NotificationPanel } from "@/components/ui/notification-panel";
+import { NotificationInitializer } from "@/components/notification-initializer";
 import { Toaster } from "sonner";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const inter = Inter({
+  variable: "--font-inter",
   subsets: ["latin"],
+  display: "swap",
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const jetbrainsMono = JetBrains_Mono({
+  variable: "--font-jetbrains-mono",
   subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
-  title: "Posting Organizer CRM",
-  description: "Manage your Facebook posting operations with ease",
+  title: "Facebook Posting CRM",
+  description: "Smart Facebook groups posting management with automated task generation and safety controls",
 };
 
 export default function RootLayout({
@@ -27,11 +33,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
         <AuthProvider>
-          {children}
-          <Toaster />
+          <NotificationProvider>
+            <NotificationInitializer />
+            {children}
+            <NotificationPanel />
+            <Toaster />
+          </NotificationProvider>
         </AuthProvider>
       </body>
     </html>

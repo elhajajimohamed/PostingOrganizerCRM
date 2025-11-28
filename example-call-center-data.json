@@ -1,0 +1,56 @@
+{
+  "name": "TeleSolutions Casablanca",
+  "country": "Morocco",
+  "city": "Casablanca",
+  "positions": 45,
+  "status": "New",
+  "value": 25000,
+  "currency": "USD",
+  "phones": [
+    "+212-5-22-345-678",
+    "+212-6-78-901-234"
+  ],
+  "phone_infos": [],
+  "emails": [
+    "contact@telesolutions.ma",
+    "info@telesolutions.ma"
+  ],
+  "website": "https://telesolutions.ma",
+  "address": "123 Avenue Hassan II, Casablanca 20000, Morocco",
+  "source": "google-places",
+  "businessType": "call-center",
+  "type": "call-center",
+  "tags": [
+    "potential-call-center",
+    "high-positions",
+    "morocco-lead",
+    "google-lead"
+  ],
+  "markets": [
+    "local",
+    "francophone"
+  ],
+  "competitors": [
+    "CallCenter Pro",
+    "MorroCall Services"
+  ],
+  "socialMedia": [
+    "https://facebook.com/telesolutions.ma",
+    "https://linkedin.com/company/telesolutions"
+  ],
+  "foundDate": "2025-11-03T09:46:00.747Z",
+  "lastContacted": null,
+  "notes": "Large call center operation with 45 employees. Found via Google Places search. High potential for partnership. Google rating: 4.2/5 stars (156 reviews). Specializes in customer service outsourcing for French and Arabic markets.",
+  "createdAt": "2025-11-03T09:46:00.747Z",
+  "updatedAt": "2025-11-03T09:46:00.747Z",
+  "is_client": false,
+  "is_blacklisted": false,
+  "is_valid_phone": true,
+  "attempts_last_90_days": 0,
+  "attempts_last_15_days": 0,
+  "attempts_30d": 0,
+  "lead_quality_score": 85,
+  "company_size_score": 90,
+  "business_hours_score": 75,
+  "last_contacted_via_whatsapp": null
+}

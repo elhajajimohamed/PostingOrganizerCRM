@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Test Call Center 1",
+    "businessType": "call-center",
+    "country": "Morocco",
+    "city": "Casablanca",
+    "positions": 15,
+    "phones": "212661234567; 212662345678",
+    "emails": "test@example.com; contact@testcall.ma",
+    "website": "https://testcall.ma",
+    "address": "Casablanca, Morocco",
+    "source": "forum_post",
+    "tags": "call-center; prospection; B2B",
+    "notes": "Test prospect for import verification",
+    "status": "pending",
+    "priority": "medium",
+    "prospectDate": "2025-11-09",
+    "createdAt": "2025-11-09T20:43:00.000Z"
+  },
+  {
+    "name": "Test VoIP Provider",
+    "businessType": "voip-reseller",
+    "country": "Tunisia",
+    "city": "Tunis",
+    "positions": 0,
+    "phones": "21671123456",
+    "emails": "info@testvoip.tn",
+    "website": "",
+    "address": "",
+    "source": "referral",
+    "tags": "voip; wholesale; telecom",
+    "notes": "Another test prospect with different business type",
+    "status": "qualified",
+    "priority": "high",
+    "prospectDate": "2025-11-09",
+    "createdAt": "2025-11-09T20:43:01.000Z"
+  }
+]

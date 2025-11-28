@@ -20,7 +20,8 @@ import {
    Menu,
    X,
    Search,
-   Target
+   Target,
+   Bell
  } from 'lucide-react';
 
 interface NavigationItem {
@@ -43,8 +44,8 @@ const navigationItems: NavigationItem[] = [
     icon: <LayoutDashboard className="w-5 h-5" />
   },
   {
-     id: 'call-centers',
-     label: 'Call Centers',
+     id: 'external-crm',
+     label: 'External CRM',
      icon: <Building2 className="w-5 h-5" />
    },
    {
@@ -73,6 +74,11 @@ const navigationItems: NavigationItem[] = [
     icon: <CheckSquare className="w-5 h-5" />
   },
   {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: <Bell className="w-5 h-5" />
+  },
+  {
     id: 'simulator',
     label: 'Price Simulator',
     icon: <Calculator className="w-5 h-5" />
@@ -93,9 +99,9 @@ const navigationItems: NavigationItem[] = [
     icon: <Target className="w-5 h-5" />
   },
   {
-    id: 'posting-crm',
-    label: 'Facebook Groups CRM',
-    icon: <Users className="w-5 h-5" />
+    id: 'posting-posting',
+    label: 'Posting Posting',
+    icon: <Target className="w-5 h-5" />
   }
 ];
 

@@ -12,18 +12,19 @@ interface CalendarEventUpdate extends Record<string, unknown> {
   status?: string;
   completedAt?: string | null;
   callCenterId?: string;
+  summary?: string;
   updatedAt?: string;
 }
 
 // PUT /api/external-crm/calendar/[id] - Update a calendar event
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
-    const { title, description, date, time, location, type, status, completedAt, callCenterId } = body;
+    const { title, description, date, time, location, type, status, completedAt, callCenterId, summary } = body;
 
     if (!title || !date) {
       return NextResponse.json(
@@ -55,6 +56,11 @@ export async function PUT(
     // Handle call center updates
     if (callCenterId !== undefined) {
       updateData.callCenterId = callCenterId;
+    }
+
+    // Handle summary updates
+    if (summary !== undefined) {
+      updateData.summary = summary;
     }
 
     const eventRef = doc(db, 'calendarEvents', id);

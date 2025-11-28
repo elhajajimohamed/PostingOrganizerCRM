@@ -22,25 +22,48 @@ import {
 import { storage, db } from '@/lib/firebase';
 import { Media, CreateMediaData } from '@/lib/types';
 
-const COLLECTION_NAME = 'media';
+const COLLECTION_NAME = 'imagesVOIP';
 
 export class MediaService {
   // Get all media files
   static async getAllMedia(): Promise<Media[]> {
     try {
+      console.log('🔍 [MediaService] getAllMedia called');
+      console.log('📊 [MediaService] Collection name:', COLLECTION_NAME);
+      
       const q = query(
         collection(db, COLLECTION_NAME),
-        orderBy('uploadedAt', 'desc')
+        orderBy('createdAt', 'desc')
       );
 
+      console.log('🔍 [MediaService] Executing query...');
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        uploadedAt: doc.data().uploadedAt?.toDate(),
-      })) as Media[];
+      console.log('📊 [MediaService] Found documents:', querySnapshot.size);
+      console.log('📄 [MediaService] Raw document data:', querySnapshot.docs.map(doc => ({ id: doc.id, data: doc.data() })));
+      
+      const result = querySnapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log(`📋 [MediaService] Processing document ${doc.id}:`, data);
+        
+        const mappedData = {
+          id: doc.id,
+          name: data.filename || data.name, // Map filename to name
+          url: data.url,
+          type: data.isActive === true ? 'image' : 'video', // Map isActive to type
+          category: data.category || 'General', // Default category if missing
+          uploadedBy: data.uploadedBy || 'unknown',
+          size: data.size,
+          uploadedAt: data.createdAt?.toDate() || data.uploadedAt?.toDate(), // Map createdAt to uploadedAt
+        };
+        
+        console.log(`✅ [MediaService] Mapped data for ${doc.id}:`, mappedData);
+        return mappedData as Media;
+      });
+      
+      console.log('🎯 [MediaService] Final result:', result);
+      return result;
     } catch (error) {
-      console.error('Error getting media:', error);
+      console.error('❌ [MediaService] Error getting media:', error);
       throw new Error('Failed to fetch media');
     }
   }
@@ -194,18 +217,29 @@ export class MediaService {
   // Get media by user
   static async getMediaByUser(uploadedBy: string): Promise<Media[]> {
     try {
-      const q = query(
-        collection(db, COLLECTION_NAME),
-        where('uploadedBy', '==', uploadedBy),
-        orderBy('uploadedAt', 'desc')
-      );
+      // First try with composite index (uploadedBy + uploadedAt)
+      try {
+        const q = query(
+          collection(db, COLLECTION_NAME),
+          where('uploadedBy', '==', uploadedBy),
+          orderBy('uploadedAt', 'desc')
+        );
 
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        uploadedAt: doc.data().uploadedAt?.toDate(),
-      })) as Media[];
+        const querySnapshot = await getDocs(q);
+        return querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          uploadedAt: doc.data().uploadedAt?.toDate(),
+        })) as Media[];
+      } catch (indexError: any) {
+        // If composite index error, fall back to client-side filtering
+        if (indexError.message?.includes('index')) {
+          console.warn('Composite index not found, falling back to client-side filtering');
+          const allMedia = await this.getAllMedia();
+          return allMedia.filter(media => media.uploadedBy === uploadedBy);
+        }
+        throw indexError;
+      }
     } catch (error) {
       console.error('Error getting media by user:', error);
       throw new Error('Failed to fetch user media');
@@ -271,8 +305,8 @@ export class MediaService {
 
       // Filter media that match the search term
       return media.filter(m =>
-        m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.category.toLowerCase().includes(searchTerm.toLowerCase())
+        (m.name && m.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (m.category && m.category.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     } catch (error) {
       console.error('Error searching media:', error);

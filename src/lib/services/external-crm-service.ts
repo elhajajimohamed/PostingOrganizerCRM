@@ -57,6 +57,7 @@ export class ExternalCRMService {
         limitParam
       });
 
+
       // For pagination, we need to fetch all documents and slice them client-side
       // since Firestore doesn't support efficient offset-based pagination
       const allConstraints: QueryConstraint[] = [];
@@ -79,6 +80,11 @@ export class ExternalCRMService {
 
       let callCenters: CallCenter[] = querySnapshot.docs.map(doc => {
         const data = doc.data();
+        console.log(`🔍 [GET-CENTERS] Processing call center ${doc.id}:`, {
+          name: data.name,
+          businessType: data.businessType
+        });
+        
         return {
           id: doc.id,
           name: data.name || '',
@@ -86,6 +92,7 @@ export class ExternalCRMService {
           city: data.city || '',
           positions: data.positions || 0,
           status: data.status || 'New',
+          businessType: data.businessType || undefined,
           value: data.value || 0,
           currency: data.currency || 'USD',
           phones: data.phones || [],
@@ -102,6 +109,17 @@ export class ExternalCRMService {
           foundDate: data.foundDate || '',
           lastContacted: data.lastContacted?.toDate?.()?.toISOString() || data.lastContacted,
           notes: data.notes || '',
+          summary: data.summary || '',
+          // New destinations field for calling destinations (multiple selection)
+          destinations: data.destinations || [],
+          // Manual WhatsApp exclusion fields
+          no_whatsapp_phones: data.no_whatsapp_phones || [],
+          whatsapp_excluded_until: data.whatsapp_excluded_until || undefined,
+          // Follow-up action fields
+          dnc_until: data.dnc_until || undefined,
+          nwt_notification: data.nwt_notification || false,
+          satisfied_followup_date: data.satisfied_followup_date || undefined,
+          satisfied_notification: data.satisfied_notification || undefined,
           createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
         } as CallCenter;
@@ -160,6 +178,13 @@ export class ExternalCRMService {
       if (docSnap.exists()) {
         const data = docSnap.data();
 
+        console.log(`🔍 [GET-CENTER] Fetching individual call center ${docId}:`, {
+          name: data.name,
+          rawDestinations: data.destinations,
+          destinationsType: typeof data.destinations,
+          destinationsIsArray: Array.isArray(data.destinations)
+        });
+
         // Load subcollections (contacts, steps, etc.)
         const [contacts, steps, callHistory, recharges] = await Promise.all([
           ExternalCRMSubcollectionsService.getContacts(docId),
@@ -168,7 +193,7 @@ export class ExternalCRMService {
           ExternalCRMSubcollectionsService.getRecharges(docId),
         ]);
 
-        return {
+        const callCenter = {
           id: docSnap.id,
           name: data.name || '',
           country: data.country || '',
@@ -184,6 +209,7 @@ export class ExternalCRMService {
           address: data.address || '',
           source: data.source || '',
           type: data.type || '',
+          businessType: data.businessType || undefined,
           tags: data.tags || [],
           markets: data.markets || [],
           competitors: data.competitors || [],
@@ -191,6 +217,17 @@ export class ExternalCRMService {
           foundDate: data.foundDate || '',
           lastContacted: data.lastContacted?.toDate?.()?.toISOString() || data.lastContacted,
           notes: data.notes || '',
+          summary: data.summary || '',
+          // New destinations field for calling destinations (multiple selection)
+          destinations: data.destinations || [],
+          // Manual WhatsApp exclusion fields
+          no_whatsapp_phones: data.no_whatsapp_phones || [],
+          whatsapp_excluded_until: data.whatsapp_excluded_until || undefined,
+          // Follow-up action fields
+          dnc_until: data.dnc_until || undefined,
+          nwt_notification: data.nwt_notification || false,
+          satisfied_followup_date: data.satisfied_followup_date || undefined,
+          satisfied_notification: data.satisfied_notification || undefined,
           createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
           updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
           contacts,
@@ -198,15 +235,24 @@ export class ExternalCRMService {
           callHistory,
           recharges,
         } as CallCenter;
+
+        console.log(`✅ [GET-CENTER] Returning call center ${docId} with destinations:`, {
+          destinations: callCenter.destinations,
+          destinationsType: typeof callCenter.destinations,
+          destinationsIsArray: Array.isArray(callCenter.destinations)
+        });
+
+        return callCenter;
       }
+      console.log(`❌ [GET-CENTER] Call center ${docId} not found`);
       return null;
     } catch (error) {
-      console.error('Error fetching call center:', error);
+      console.error('❌ [GET-CENTER] Error fetching call center:', error);
       throw error;
     }
   }
 
-  static async createCallCenter(callCenter: Omit<CallCenter, 'id' | 'createdAt'>): Promise<number> {
+  static async createCallCenter(callCenter: Omit<CallCenter, 'id' | 'createdAt'>): Promise<string> {
     try {
       console.log('🔍 [CREATE] Creating call center with data:', callCenter);
 
@@ -232,12 +278,15 @@ export class ExternalCRMService {
         address: callCenter.address || '',
         source: callCenter.source || '',
         type: callCenter.type || '',
+        businessType: callCenter.businessType || undefined,
         tags: Array.isArray(callCenter.tags) ? callCenter.tags : [],
         markets: Array.isArray(callCenter.markets) ? callCenter.markets : [],
         competitors: Array.isArray(callCenter.competitors) ? callCenter.competitors : [],
         socialMedia: Array.isArray(callCenter.socialMedia) ? callCenter.socialMedia : [],
         foundDate: callCenter.foundDate || '',
         notes: callCenter.notes || '',
+        // New destinations field for calling destinations (multiple selection)
+        destinations: Array.isArray(callCenter.destinations) ? callCenter.destinations : [],
         updatedAt: new Date().toISOString(),
       };
 
@@ -251,7 +300,7 @@ export class ExternalCRMService {
       });
 
       console.log('✅ [CREATE] Call center created with ID:', docRef.id);
-      return parseInt(docRef.id);
+      return docRef.id;
     } catch (error) {
       console.error('❌ [CREATE] Error creating call center:', error);
       // If permission denied, suggest logging in or updating Firestore rules
@@ -262,26 +311,124 @@ export class ExternalCRMService {
     }
   }
 
-  static async updateCallCenter(id: number, updates: Partial<CallCenter>): Promise<void> {
+  static async updateCallCenter(id: number | string, updates: Partial<CallCenter>, skipSync: boolean = false): Promise<void> {
     try {
+      // Handle both numeric IDs and Firebase document IDs
+      const docId = typeof id === 'string' ? id : id.toString();
+
+      console.log('🔍 [UPDATE] Starting updateCallCenter for ID:', docId);
+      console.log('🔍 [UPDATE] Updates received:', updates);
+      console.log('🔍 [UPDATE] Destinations in updates:', updates.destinations);
+      console.log('🔍 [UPDATE] Destinations type:', typeof updates.destinations);
+      console.log('🔍 [UPDATE] Destinations isArray:', Array.isArray(updates.destinations));
+
+      // Get current call center to compare phone changes
+      const currentCallCenter = await this.getCallCenter(id);
+      console.log('🔍 [UPDATE] Current call center destinations:', currentCallCenter?.destinations);
+
       // Run phone detection if phones are updated
       if (updates.phones) {
-        const callCenter = await this.getCallCenter(id);
-        const country = callCenter?.country;
+        const country = currentCallCenter?.country;
         const phoneInfos = updates.phones.map(phone => PhoneDetectionService.detectPhone(phone, country));
         updates.phone_infos = phoneInfos;
       }
 
-      const docRef = doc(db, COLLECTION_NAMES.CALL_CENTERS, id.toString());
+      // Check if new mobile phones were added and remove "No WhatsApp" exclusion
+      if (updates.phones && currentCallCenter?.no_whatsapp_phones?.length) {
+        const currentPhones = currentCallCenter.phones || [];
+        const newPhones = updates.phones || [];
+        const oldMobilePhones = new Set();
+        const currentMobilePhones = new Set();
+
+        // Find current mobile phones
+        if (currentCallCenter.phone_infos) {
+          currentCallCenter.phone_infos.forEach((phoneInfo, index) => {
+            if (phoneInfo.is_mobile && phoneInfo.whatsapp_confidence >= 0.7) {
+              oldMobilePhones.add(currentPhones[index]);
+            }
+          });
+        }
+
+        // Find new mobile phones
+        const newPhoneInfos = updates.phone_infos || [];
+        newPhoneInfos.forEach((phoneInfo, index) => {
+          if (phoneInfo.is_mobile && phoneInfo.whatsapp_confidence >= 0.7) {
+            currentMobilePhones.add(newPhones[index]);
+          }
+        });
+
+        // Check if there are new mobile phones that weren't previously detected
+        const newMobilePhones = [...currentMobilePhones].filter(phone =>
+          !oldMobilePhones.has(phone) && !currentCallCenter.no_whatsapp_phones?.includes(phone as string)
+        );
+
+        if (newMobilePhones.length > 0) {
+          console.log(`📱 [UPDATE] New mobile phones detected: ${newMobilePhones.join(', ')}. Removing "No WhatsApp" exclusion.`);
+
+          // Remove phones from no_whatsapp_phones that are now mobile
+          const updatedNoWhatsappPhones = (currentCallCenter.no_whatsapp_phones || []).filter(
+            phone => !newMobilePhones.includes(phone)
+          );
+
+          // Clear the exclusion if no phones remain
+          if (updatedNoWhatsappPhones.length === 0) {
+            updates.no_whatsapp_phones = [];
+            updates.whatsapp_excluded_until = undefined;
+            console.log(`📱 [UPDATE] All "No WhatsApp" phones removed. Call center now eligible for WhatsApp.`);
+          } else {
+            updates.no_whatsapp_phones = updatedNoWhatsappPhones;
+          }
+        }
+      }
+
+      const docRef = doc(db, COLLECTION_NAMES.CALL_CENTERS, docId);
       const updateData: Record<string, any> = { ...updates };
+
+      console.log('🔍 [UPDATE] Update data before processing:', updateData);
+      console.log('🔍 [UPDATE] Destinations in updateData:', updateData.destinations);
+      console.log('🔍 [UPDATE] Update data JSON.stringify:', JSON.stringify(updateData, null, 2));
 
       if (updates.lastContacted) {
         updateData.lastContacted = Timestamp.fromDate(new Date(updates.lastContacted));
       }
 
+      console.log('🔍 [UPDATE] Final updateData being saved:', updateData);
+      console.log('🔍 [UPDATE] Destinations in final updateData:', updateData.destinations);
+      console.log('🔍 [UPDATE] About to call updateDoc with ref:', docRef.path);
+
       await updateDoc(docRef, updateData);
+
+      console.log('✅ [UPDATE] Successfully updated call center in Firestore');
+
+      // Verify the update by reading back the document
+      try {
+        const updatedDoc = await getDoc(docRef);
+        if (updatedDoc.exists()) {
+          const data = updatedDoc.data();
+          console.log('✅ [UPDATE] Verification - Document data after save:', {
+            destinations: data.destinations,
+            destinationsType: typeof data.destinations,
+            destinationsIsArray: Array.isArray(data.destinations)
+          });
+        } else {
+          console.log('❌ [UPDATE] Verification failed - Document not found after save');
+        }
+      } catch (verifyError) {
+        console.error('❌ [UPDATE] Verification error:', verifyError);
+      }
+
+      // Sync back to prospects (only if not skipping sync)
+      if (currentCallCenter && !skipSync) {
+        try {
+          await ExternalCRMSubcollectionsService.syncUpdatesToProspects(currentCallCenter, updates);
+        } catch (syncError) {
+          console.error('❌ Error syncing call center updates to prospects:', syncError);
+          // Don't fail the call center update if sync fails
+        }
+      }
     } catch (error) {
-      console.error('Error updating call center:', error);
+      console.error('❌ [UPDATE] Error updating call center:', error);
+      console.error('❌ [UPDATE] Error stack:', error instanceof Error ? error.stack : 'No stack trace');
       throw error;
     }
   }
@@ -382,6 +529,128 @@ export class ExternalCRMService {
       return { success: true, tagged: taggedCount };
     } catch (error) {
       console.error('Error batch tagging call centers:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
+  // Merge duplicate call centers - transfer steps and other data before deleting
+  static async mergeCallCenters(primaryId: string, duplicateIds: string[]): Promise<ApiResponse<void>> {
+    try {
+      console.log(`🔄 [MERGE] Starting merge operation: primary=${primaryId}, duplicates=${duplicateIds.join(',')}`);
+
+      // Validate primary call center exists
+      const primaryCallCenter = await this.getCallCenter(primaryId);
+      if (!primaryCallCenter) {
+        return { success: false, error: `Primary call center ${primaryId} not found` };
+      }
+
+      const batch = writeBatch(db);
+      let transferredSteps = 0;
+      let transferredCallLogs = 0;
+      let transferredContacts = 0;
+      let transferredRecharges = 0;
+
+      for (const duplicateId of duplicateIds) {
+        console.log(`🔄 [MERGE] Processing duplicate: ${duplicateId}`);
+
+        // Transfer steps from duplicate to primary
+        try {
+          const duplicateSteps = await ExternalCRMSubcollectionsService.getSteps(duplicateId);
+          console.log(`📋 [MERGE] Found ${duplicateSteps.length} steps in duplicate ${duplicateId}`);
+
+          for (const step of duplicateSteps) {
+            // Create the step in the primary call center
+            await ExternalCRMSubcollectionsService.addStep(primaryId, {
+              title: step.title,
+              description: step.description,
+              date: step.date,
+              priority: step.priority,
+              completed: step.completed,
+              notes: step.notes
+            });
+            transferredSteps++;
+          }
+        } catch (error) {
+          console.error(`❌ [MERGE] Error transferring steps from ${duplicateId}:`, error);
+        }
+
+        // Transfer call logs from duplicate to primary
+        try {
+          const duplicateCallLogs = await ExternalCRMSubcollectionsService.getCallHistory(duplicateId);
+          console.log(`📞 [MERGE] Found ${duplicateCallLogs.length} call logs in duplicate ${duplicateId}`);
+
+          for (const callLog of duplicateCallLogs) {
+            await ExternalCRMSubcollectionsService.addCallLog(primaryId, {
+              date: callLog.date,
+              outcome: callLog.outcome,
+              duration: callLog.duration,
+              notes: callLog.notes,
+              followUp: callLog.followUp
+            });
+            transferredCallLogs++;
+          }
+        } catch (error) {
+          console.error(`❌ [MERGE] Error transferring call logs from ${duplicateId}:`, error);
+        }
+
+        // Transfer contacts from duplicate to primary
+        try {
+          const duplicateContacts = await ExternalCRMSubcollectionsService.getContacts(duplicateId);
+          console.log(`👥 [MERGE] Found ${duplicateContacts.length} contacts in duplicate ${duplicateId}`);
+
+          for (const contact of duplicateContacts) {
+            await ExternalCRMSubcollectionsService.addContact(primaryId, {
+              name: contact.name,
+              position: contact.position,
+              phone: contact.phone,
+              email: contact.email,
+              notes: contact.notes,
+              lastContact: contact.lastContact || ''
+            });
+            transferredContacts++;
+          }
+        } catch (error) {
+          console.error(`❌ [MERGE] Error transferring contacts from ${duplicateId}:`, error);
+        }
+
+        // Transfer recharges from duplicate to primary
+        try {
+          const duplicateRecharges = await ExternalCRMSubcollectionsService.getRecharges(duplicateId);
+          console.log(`💰 [MERGE] Found ${duplicateRecharges.length} recharges in duplicate ${duplicateId}`);
+
+          for (const recharge of duplicateRecharges) {
+            await ExternalCRMSubcollectionsService.addRecharge(primaryId, {
+              amount: recharge.amount,
+              currency: recharge.currency,
+              date: recharge.date,
+              method: recharge.method,
+              notes: recharge.notes
+            });
+            transferredRecharges++;
+          }
+        } catch (error) {
+          console.error(`❌ [MERGE] Error transferring recharges from ${duplicateId}:`, error);
+        }
+
+        // Delete the duplicate call center
+        console.log(`🗑️ [MERGE] Deleting duplicate call center: ${duplicateId}`);
+        batch.delete(doc(db, COLLECTION_NAMES.CALL_CENTERS, duplicateId));
+      }
+
+      // Update primary call center's updatedAt timestamp
+      batch.update(doc(db, COLLECTION_NAMES.CALL_CENTERS, primaryId), {
+        updatedAt: new Date().toISOString(),
+        notes: (primaryCallCenter.notes || '') + `\n\nMerged ${duplicateIds.length} duplicate(s): ${duplicateIds.join(', ')}`
+      });
+
+      await batch.commit();
+
+      console.log(`✅ [MERGE] Merge completed successfully`);
+      console.log(`📊 [MERGE] Transferred: ${transferredSteps} steps, ${transferredCallLogs} call logs, ${transferredContacts} contacts, ${transferredRecharges} recharges`);
+
+      return { success: true, merged: duplicateIds.length };
+    } catch (error) {
+      console.error('❌ [MERGE] Error merging call centers:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -600,6 +869,7 @@ export class ExternalCRMService {
           address: data.address || '',
           source: data.source || '',
           type: data.type || '',
+          businessType: data.businessType || undefined,
           tags: data.tags || [],
           markets: data.markets || [],
           competitors: data.competitors || [],
@@ -785,11 +1055,37 @@ export class ExternalCRMSubcollectionsService {
       throw error;
     }
   }
-  static async addContact(callCenterId: string, contact: Omit<Contact, 'id'>): Promise<string> {
+  static async addContact(callCenterId: string, contact: Omit<Contact, 'id'>, skipSync: boolean = false): Promise<string> {
     try {
+      console.log('👤 [ADD-CONTACT] Starting contact addition for call center:', callCenterId);
+      console.log('👤 [ADD-CONTACT] Contact data:', {
+        name: contact.name,
+        phone: contact.phone,
+        email: contact.email,
+        position: contact.position,
+        notes: contact.notes?.substring(0, 50) + (contact.notes?.length > 50 ? '...' : '')
+      });
+
       // Get call center country for detection
       const callCenter = await ExternalCRMService.getCallCenter(callCenterId);
       const country = callCenter?.country;
+
+      // Check for potential duplicates before adding
+      const existingContacts = await this.getContacts(callCenterId);
+      const duplicateKey = `${contact.name || ''}|${contact.phone || ''}|${contact.email || ''}`;
+      const existingDuplicate = existingContacts.find(c =>
+        `${c.name || ''}|${c.phone || ''}|${c.email || ''}` === duplicateKey
+      );
+
+      if (existingDuplicate) {
+        console.warn('⚠️ [ADD-CONTACT] Potential duplicate contact detected:', {
+          existingId: existingDuplicate.id,
+          newContact: contact,
+          callCenterId
+        });
+        // Return existing contact ID instead of creating duplicate
+        return existingDuplicate.id;
+      }
 
       // Run phone detection if phone is provided
       let phoneInfo;
@@ -798,10 +1094,24 @@ export class ExternalCRMSubcollectionsService {
       }
 
       const contactWithInfo = { ...contact, phone_info: phoneInfo };
+      console.log('👤 [ADD-CONTACT] Adding contact to Firestore...');
       const docRef = await addDoc(collection(db, `${COLLECTION_NAMES.CALL_CENTERS}/${callCenterId}/contacts`), contactWithInfo);
+      console.log('✅ [ADD-CONTACT] Contact added successfully with ID:', docRef.id);
+
+      // Sync contact to prospects (only if not skipping sync)
+      if (callCenter && !skipSync) {
+        try {
+          await this.syncContactToProspects(callCenter, contactWithInfo);
+          console.log('✅ [ADD-CONTACT] Contact synced to prospects');
+        } catch (syncError) {
+          console.error('❌ Error syncing contact to prospects:', syncError);
+          // Don't fail the contact addition if sync fails
+        }
+      }
+
       return docRef.id;
     } catch (error) {
-      console.error('Error adding contact:', error);
+      console.error('❌ [ADD-CONTACT] Error adding contact:', error);
       throw error;
     }
   }
@@ -976,6 +1286,30 @@ export class ExternalCRMSubcollectionsService {
       const docRef = await addDoc(collection(db, collectionPath), docData);
       console.log(`✅ [CALL-LOG] Successfully saved call log with ID: ${docRef.id}`);
 
+      // Check if this call center was created from a prospect and sync the call log back
+      try {
+        const callCenter = await ExternalCRMService.getCallCenter(callCenterId);
+        if (callCenter && (callCenter as any).prospectId) {
+          const prospectId = (callCenter as any).prospectId;
+          console.log(`🔄 [SYNC] Call center ${callCenterId} has prospectId ${prospectId}, syncing call log back to prospect`);
+
+          // Import the ProspectionService to avoid circular dependency
+          const { ProspectionService } = await import('@/lib/services/prospection-service');
+
+          // Add the call log to the prospect
+          await ProspectionService.addCallLog(prospectId, {
+            ...callLog,
+            // Keep the original date format for prospects
+            date: callLog.date
+          });
+
+          console.log(`✅ [SYNC] Successfully synced call log back to prospect ${prospectId}`);
+        }
+      } catch (syncError) {
+        console.error('❌ [SYNC] Error syncing call log back to prospect:', syncError);
+        // Don't fail the call log creation if sync fails
+      }
+
       // Create calendar event for follow-up calls
       if (callLog.followUp && typeof callLog.followUp === 'object' && 'date' in callLog.followUp) {
         try {
@@ -1043,6 +1377,42 @@ export class ExternalCRMSubcollectionsService {
     }
   }
 
+  static async batchDeleteCallLogs(callCenterId: string, callLogIds: string[]): Promise<ApiResponse<void>> {
+    try {
+      console.log('🔍 [BATCH-DELETE-CALL-LOGS] Starting batch delete with IDs:', callLogIds);
+
+      const batch = writeBatch(db);
+      let deletedCount = 0;
+
+      for (const callLogId of callLogIds) {
+        // Handle null/undefined IDs
+        if (callLogId === null || callLogId === undefined) {
+          console.log('⚠️ [BATCH-DELETE-CALL-LOGS] Skipping null/undefined ID');
+          continue;
+        }
+
+        console.log(`🗑️ [BATCH-DELETE-CALL-LOGS] Deleting call log with ID: ${callLogId}`);
+
+        const docRef = doc(db, `${COLLECTION_NAMES.CALL_CENTERS}/${callCenterId}/callHistory/${callLogId}`);
+        batch.delete(docRef);
+        deletedCount++;
+      }
+
+      if (deletedCount > 0) {
+        console.log(`🔄 [BATCH-DELETE-CALL-LOGS] Committing batch delete of ${deletedCount} call logs`);
+        await batch.commit();
+        console.log('✅ [BATCH-DELETE-CALL-LOGS] Batch delete completed successfully');
+      } else {
+        console.log('⚠️ [BATCH-DELETE-CALL-LOGS] No valid IDs to delete');
+      }
+
+      return { success: true, deleted: deletedCount };
+    } catch (error) {
+      console.error('❌ [BATCH-DELETE-CALL-LOGS] Error batch deleting call logs:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  }
+
   static async getRecharges(callCenterId: string): Promise<Recharge[]> {
     try {
       const q = query(collection(db, `${COLLECTION_NAMES.CALL_CENTERS}/${callCenterId}/recharges`), orderBy('date', 'desc'));
@@ -1093,6 +1463,151 @@ export class ExternalCRMSubcollectionsService {
       await deleteDoc(doc(db, `${COLLECTION_NAMES.CALL_CENTERS}/${callCenterId}/recharges/${rechargeId}`));
     } catch (error) {
       console.error('Error deleting recharge:', error);
+      throw error;
+    }
+  }
+
+  // Synchronization methods for bidirectional updates
+
+  // Sync call center updates back to prospects
+  static async syncUpdatesToProspects(callCenter: CallCenter, updates: Partial<CallCenter>): Promise<void> {
+    try {
+      const { ProspectionService } = await import('@/lib/services/prospection-service');
+
+      // Find matching prospects by name
+      const prospects = await ProspectionService.getAllProspects();
+      const matchingProspect = prospects.find(p => p.name.toLowerCase() === callCenter.name.toLowerCase());
+
+      if (matchingProspect) {
+        const prospectUpdates: any = {};
+
+        // Sync status
+        if (updates.status !== undefined) {
+          let prospectStatus: 'pending' | 'contacted' | 'qualified' | 'not_interested' | 'invalid' | 'active' | 'added_to_crm' | 'archived' = 'active';
+          switch (updates.status) {
+            case 'New':
+              prospectStatus = 'pending';
+              break;
+            case 'Contacted':
+              prospectStatus = 'contacted';
+              break;
+            case 'Qualified':
+              prospectStatus = 'qualified';
+              break;
+            case 'Proposal':
+              prospectStatus = 'added_to_crm';
+              break;
+            case 'Negotiation':
+              prospectStatus = 'added_to_crm';
+              break;
+            case 'Closed-Won':
+              prospectStatus = 'added_to_crm';
+              break;
+            case 'Closed-Lost':
+              prospectStatus = 'not_interested';
+              break;
+            case 'On-Hold':
+              prospectStatus = 'pending';
+              break;
+          }
+          prospectUpdates.status = prospectStatus;
+        }
+
+        // Sync tags
+        if (updates.tags !== undefined) {
+          prospectUpdates.tags = updates.tags;
+        }
+
+        // Sync destinations
+        if (updates.destinations !== undefined) {
+          prospectUpdates.destinations = updates.destinations;
+        }
+
+        // Sync notes (append to existing notes)
+        if (updates.notes !== undefined) {
+          const updatedNotes = matchingProspect.notes
+            ? `${matchingProspect.notes}\n\n--- Call Center Notes ---\n${updates.notes}`
+            : updates.notes;
+          prospectUpdates.notes = updatedNotes;
+        }
+
+        if (Object.keys(prospectUpdates).length > 0) {
+          await ProspectionService.updateProspect(matchingProspect.id, prospectUpdates, true);
+          console.log(`🔄 Synced updates from call center ${callCenter.name} to prospect`);
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing call center updates to prospects:', error);
+      throw error;
+    }
+  }
+
+  // Sync contact from call center to prospects
+  static async syncContactToProspects(callCenter: CallCenter, contact: any): Promise<void> {
+    try {
+      const { ProspectionService } = await import('@/lib/services/prospection-service');
+
+      // Find matching prospects by name
+      const prospects = await ProspectionService.getAllProspects();
+      const matchingProspect = prospects.find(p => p.name.toLowerCase() === callCenter.name.toLowerCase());
+
+      if (matchingProspect) {
+        // Convert call center contact to prospect contact format
+        const prospectContact = {
+          name: contact.name,
+          position: contact.position,
+          email: contact.email,
+          phone: contact.phone,
+          notes: contact.notes
+        };
+
+        await ProspectionService.addContact(matchingProspect.id, prospectContact, true);
+        console.log(`🔄 Synced contact ${contact.name} from call center ${callCenter.name} to prospect`);
+      }
+    } catch (error) {
+      console.error('Error syncing contact to prospects:', error);
+      throw error;
+    }
+  }
+
+  // Sync WhatsApp history from call center to prospects (framework ready)
+  // This will be implemented when WhatsApp history logging is added to DailyWhatsAppService
+  static async syncWhatsAppHistoryToProspects(callCenter: CallCenter, whatsappHistory: any): Promise<void> {
+    try {
+      // Framework ready - implement when WhatsApp history is properly stored
+      // This would sync WhatsApp interactions from call centers to prospects
+      console.log(`🔄 [FRAMEWORK] WhatsApp history sync ready for call center ${callCenter.name}`);
+    } catch (error) {
+      console.error('Error syncing WhatsApp history to prospects:', error);
+      throw error;
+    }
+  }
+
+  // Sync step priority changes (when step priorities are updated)
+  static async syncStepPriorityToProspects(callCenter: CallCenter, step: Step): Promise<void> {
+    try {
+      const { ProspectionService } = await import('@/lib/services/prospection-service');
+
+      // Find matching prospects by name
+      const prospects = await ProspectionService.getAllProspects();
+      const matchingProspect = prospects.find(p => p.name.toLowerCase() === callCenter.name.toLowerCase());
+
+      if (matchingProspect && matchingProspect.steps) {
+        // Find matching step by title/description
+        const matchingStep = matchingProspect.steps.find(s =>
+          s.title === step.title || s.description === step.description
+        );
+
+        if (matchingStep) {
+          // Update step priority in prospect
+          await ProspectionService.updateStep(matchingProspect.id, matchingStep.id, {
+            priority: step.priority
+          });
+          console.log(`🔄 Synced step priority ${step.priority} from call center ${callCenter.name} to prospect`);
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing step priority to prospects:', error);
       throw error;
     }
   }

@@ -57,17 +57,6 @@ export function AccountForm({ account, onSuccess, onCancel }: AccountFormProps) 
     loadBrowsers();
   }, []);
 
-  // Validate browser field when browsers list is loaded
-  useEffect(() => {
-    if (formData.browser && browsers.length > 0 && !browsers.includes(formData.browser)) {
-      console.log('Browser value not in current list, resetting:', formData.browser);
-      setFormData(prev => ({
-        ...prev,
-        browser: ''
-      }));
-    }
-  }, [browsers, formData.browser]);
-
   // Handle existing account browser validation
   useEffect(() => {
     if (account?.browser && browsers.length > 0) {
@@ -79,17 +68,6 @@ export function AccountForm({ account, onSuccess, onCancel }: AccountFormProps) 
       }
     }
   }, [account?.browser, browsers]);
-
-  // Handle browser field validation when browsers list changes
-  useEffect(() => {
-    if (formData.browser && browsers.length > 0 && !browsers.includes(formData.browser)) {
-      console.log('Browser value not in current list, resetting:', formData.browser);
-      setFormData(prev => ({
-        ...prev,
-        browser: ''
-      }));
-    }
-  }, [browsers, formData.browser]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -8,8 +8,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const callCenterId = parseInt(id);
-    const callCenter = await ExternalCRMService.getCallCenter(callCenterId);
+    // Firebase document IDs are strings, not numbers
+    const callCenter = await ExternalCRMService.getCallCenter(id);
 
     if (!callCenter) {
       return NextResponse.json(
@@ -35,14 +35,24 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const callCenterId = parseInt(id);
+    // Pass the ID as-is - the service handles both string and numeric IDs
     const updates = await request.json();
 
-    await ExternalCRMService.updateCallCenter(callCenterId, updates);
+    console.log('🔍 [API] PUT /api/external-crm/[id] - Received updates for ID:', id);
+    console.log('🔍 [API] PUT /api/external-crm/[id] - Updates received:', updates);
+    console.log('🔍 [API] PUT /api/external-crm/[id] - Destinations in updates:', updates.destinations);
+    console.log('🔍 [API] PUT /api/external-crm/[id] - Destinations type:', typeof updates.destinations);
+    console.log('🔍 [API] PUT /api/external-crm/[id] - Destinations isArray:', Array.isArray(updates.destinations));
+    console.log('🔍 [API] PUT /api/external-crm/[id] - Full request body:', JSON.stringify(updates, null, 2));
+
+    await ExternalCRMService.updateCallCenter(id, updates);
+
+    console.log('✅ [API] PUT /api/external-crm/[id] - Successfully called updateCallCenter service');
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error updating call center:', error);
+    console.error('❌ [API] PUT /api/external-crm/[id] - Error updating call center:', error);
+    console.error('❌ [API] PUT /api/external-crm/[id] - Error details:', error instanceof Error ? error.stack : 'No stack trace');
     return NextResponse.json(
       { success: false, error: 'Failed to update call center' },
       { status: 500 }

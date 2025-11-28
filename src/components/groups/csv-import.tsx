@@ -140,7 +140,8 @@ export function CSVImport({ onImportSuccess, onCancel }: CSVImportProps) {
             url: groupData.url,
             tags: groupData.tags,
             language: groupData.language,
-            accountId: selectedAccount // Assign to selected account
+            accountId: selectedAccount, // Assign to selected account
+            facebookAccountId: selectedAccount // Also set facebookAccountId for Facebook CRM
           });
 
           successCount++;

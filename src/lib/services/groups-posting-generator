@@ -1,0 +1,598 @@
+import {
+  collection,
+  doc,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  serverTimestamp,
+  Timestamp,
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
+interface Group {
+  id: string;
+  name: string;
+  url: string;
+  memberCount: number;
+  category?: string;
+  description?: string;
+  createdAt: any;
+  updatedAt: any;
+}
+
+interface Account {
+  id: string;
+  name: string;
+  profileImage?: string;
+  browserType?: string;
+  status: string;
+  createdAt: any;
+  updatedAt: any;
+}
+
+interface Text {
+  id: string;
+  title: string;
+  content: string;
+  isActive: boolean;
+  createdAt: any;
+  updatedAt: any;
+}
+
+interface Image {
+  id: string;
+  filename: string;
+  url: string;
+  storagePath: string;
+  size: number;
+  isActive: boolean;
+  createdAt: any;
+  updatedAt: any;
+}
+
+interface WeeklyPostingPlan {
+  id: string;
+  weekStartDate: string;
+  weekEndDate: string;
+  totalTasks: number;
+  generatedAt: string;
+  status: 'active' | 'completed' | 'cancelled';
+}
+
+interface WeeklyTask {
+  id: string;
+  planId: string;
+  dayOfWeek: number; // 1-5 for Monday-Friday
+  accountId: string;
+  accountName: string;
+  groupId: string;
+  groupName: string;
+  groupUrl: string;
+  groupMemberCount: number;
+  textId: string;
+  textTitle: string;
+  textContent: string;
+  imageId?: string;
+  imageUrl?: string;
+  imageFilename?: string;
+  scheduledTime: string;
+  status: 'pending' | 'completed' | 'failed' | 'joining';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export class GroupsPostingGeneratorService {
+  private static COLLECTIONS = {
+    WEEKLY_PLANS: 'weeklyPostingPlans',
+    WEEKLY_TASKS: 'weeklyPostingTasks',
+    ACCOUNTS: 'accountsVOIP',
+    GROUPS: 'groupsVOIP',
+    TEXTS: 'textsVOIP',
+    IMAGES: 'imagesVOIP'
+  };
+
+  // Get current week's start and end dates (Monday to Friday)
+  private static getCurrentWeekRange(): { start: Date; end: Date } {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
+    const currentWeekStart = new Date(now);
+    
+    // Calculate Monday of current week
+    if (currentDay === 0) {
+      // If Sunday, go to next Monday
+      currentWeekStart.setDate(now.getDate() + 1);
+    } else if (currentDay > 1) {
+      // If Tuesday-Friday, go back to Monday
+      currentWeekStart.setDate(now.getDate() - (currentDay - 1));
+    }
+    // If Monday, currentWeekStart is already set correctly
+    
+    currentWeekStart.setHours(0, 0, 0, 0);
+    
+    const currentWeekEnd = new Date(currentWeekStart);
+    currentWeekEnd.setDate(currentWeekStart.getDate() + 4); // Friday
+    currentWeekEnd.setHours(23, 59, 59, 999);
+    
+    return { start: currentWeekStart, end: currentWeekEnd };
+  }
+
+  // Get current week's range in ISO format for database
+  private static getCurrentWeekRangeISO(): { start: string; end: string } {
+    const { start, end } = this.getCurrentWeekRange();
+    return {
+      start: start.toISOString().split('T')[0],
+      end: end.toISOString().split('T')[0]
+    };
+  }
+
+  // Check if a weekly plan already exists for current week
+  static async hasCurrentWeekPlan(): Promise<boolean> {
+    try {
+      const { start } = this.getCurrentWeekRangeISO();
+      const q = query(
+        collection(db, this.COLLECTIONS.WEEKLY_PLANS),
+        where('weekStartDate', '==', start)
+      );
+      const snapshot = await getDocs(q);
+      return !snapshot.empty;
+    } catch (error) {
+      console.error('Error checking current week plan:', error);
+      return false;
+    }
+  }
+
+  // Get existing weekly plan
+  static async getCurrentWeekPlan(): Promise<WeeklyPostingPlan | null> {
+    try {
+      const { start } = this.getCurrentWeekRangeISO();
+      const q = query(
+        collection(db, this.COLLECTIONS.WEEKLY_PLANS),
+        where('weekStartDate', '==', start)
+      );
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) return null;
+      
+      const doc = snapshot.docs[0];
+      return {
+        id: doc.id,
+        ...doc.data()
+      } as WeeklyPostingPlan;
+    } catch (error) {
+      console.error('Error getting current week plan:', error);
+      return null;
+    }
+  }
+
+  // Get all data from collections with validation
+  private static async getData(): Promise<{
+    accounts: Account[];
+    groups: Group[];
+    texts: Text[];
+    images: Image[];
+  }> {
+    try {
+      console.log('📊 [ALGORITHM] Starting data collection...');
+      
+      const [accountsSnapshot, groupsSnapshot, textsSnapshot, imagesSnapshot] = await Promise.all([
+        getDocs(collection(db, this.COLLECTIONS.ACCOUNTS)),
+        getDocs(collection(db, this.COLLECTIONS.GROUPS)),
+        getDocs(collection(db, this.COLLECTIONS.TEXTS)),
+        getDocs(collection(db, this.COLLECTIONS.IMAGES))
+      ]);
+
+      const accounts = accountsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .filter((acc: any) => acc.status === 'active') as Account[];
+
+      const groups = groupsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .sort((a: any, b: any) => (b.memberCount || 0) - (a.memberCount || 0)) as Group[];
+
+      const texts = textsSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .filter((text: any) => text.isActive) as Text[];
+
+      const images = imagesSnapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .filter((img: any) => img.isActive) as Image[];
+
+      console.log('📊 [ALGORITHM] Raw data loaded:');
+      console.log(`   - Accounts (raw): ${accountsSnapshot.size}, Active: ${accounts.length}`);
+      console.log(`   - Groups (raw): ${groupsSnapshot.size}, With member count: ${groups.filter(g => g.memberCount).length}`);
+      console.log(`   - Texts (raw): ${textsSnapshot.size}, Active: ${texts.length}`);
+      console.log(`   - Images (raw): ${imagesSnapshot.size}, Active: ${images.length}`);
+
+      // Validate data quality
+      const issues = [];
+      if (accounts.length === 0) issues.push('No active accounts found');
+      if (groups.length === 0) issues.push('No groups found');
+      if (texts.length === 0) issues.push('No active texts found');
+      if (images.length === 0) issues.push('No active images found');
+
+      if (issues.length > 0) {
+        console.error('❌ [ALGORITHM] Data validation failed:', issues.join(', '));
+        throw new Error('Data validation failed: ' + issues.join(', '));
+      }
+
+      console.log('✅ [ALGORITHM] Data validation passed');
+      return { accounts, groups, texts, images };
+    } catch (error) {
+      console.error('❌ [ALGORITHM] Error getting data:', error);
+      throw error;
+    }
+  }
+
+  // Get remaining weekdays with enhanced logging
+  private static getRemainingWeekDays(): number[] {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday, 2 = Tuesday, etc.
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    
+    console.log(`📅 [ALGORITHM] Date analysis:`);
+    console.log(`   - Current date: ${now.toDateString()}`);
+    console.log(`   - JavaScript day: ${currentDay} (${dayNames[currentDay]})`);
+    
+    // If it's weekend, generate for full week
+    if (currentDay === 0 || currentDay === 6) {
+      console.log('📅 [ALGORITHM] Weekend detected - generating full week');
+      return [1, 2, 3, 4, 5]; // Monday to Friday
+    }
+    
+    // For weekdays, generate for remaining days
+    const remainingDays = [];
+    for (let day = currentDay; day <= 5; day++) {
+      remainingDays.push(day);
+    }
+    
+    const remainingDayNames = remainingDays.map(d => dayNames[d]);
+    console.log(`📅 [ALGORITHM] Weekday detected - remaining days: [${remainingDays.join(', ')}] = [${remainingDayNames.join(', ')}]`);
+    
+    return remainingDays;
+  }
+
+  // Simple weekly posting plan generator with explicit validation
+  static async generateWeeklyPlan(options: {
+    tasksPerDay?: number;
+    startTime?: string;
+    timeInterval?: number;
+    forcePartialWeek?: boolean;
+  } = {}): Promise<WeeklyPostingPlan> {
+    console.log('🚀 [ALGORITHM] === STARTING PLAN GENERATION ===');
+    
+    try {
+      // Step 1: Configuration and date analysis
+      console.log('⚙️ [ALGORITHM] Step 1: Configuration analysis');
+      const tasksPerDay = options.tasksPerDay || 5;
+      const startTimeStr = options.startTime || '09:00';
+      const timeInterval = options.timeInterval || 120;
+      const forcePartialWeek = options.forcePartialWeek || false;
+      
+      console.log(`   - Tasks per day: ${tasksPerDay}`);
+      console.log(`   - Start time: ${startTimeStr}`);
+      console.log(`   - Time interval: ${timeInterval} minutes`);
+      console.log(`   - Force partial week: ${forcePartialWeek}`);
+
+      // Step 2: Date and day calculation
+      console.log('📅 [ALGORITHM] Step 2: Date calculation');
+      const now = new Date();
+      const remainingDays = this.getRemainingWeekDays();
+      const { start, end } = this.getCurrentWeekRange();
+      
+      console.log(`   - Week start: ${start.toDateString()}`);
+      console.log(`   - Week end: ${end.toDateString()}`);
+      console.log(`   - Remaining days: [${remainingDays.join(', ')}]`);
+
+      // Step 3: Data validation
+      console.log('📊 [ALGORITHM] Step 3: Data collection and validation');
+      const { accounts, groups, texts, images } = await this.getData();
+      
+      console.log('📊 [ALGORITHM] Available data:');
+      console.log(`   - Active accounts: ${accounts.length}`);
+      console.log(`   - Available groups: ${groups.length}`);
+      console.log(`   - Active texts: ${texts.length}`);
+      console.log(`   - Active images: ${images.length}`);
+
+      // Step 4: Plan existence check
+      console.log('📋 [ALGORITHM] Step 4: Plan existence check');
+      const existingPlan = await this.getCurrentWeekPlan();
+      
+      if (existingPlan && !forcePartialWeek) {
+        // Check if existing plan has tasks
+        const existingTasks = await this.getCurrentWeekTasks();
+        if (existingTasks.length > 0) {
+          throw new Error('Weekly plan already exists with tasks. Please clear it first or use forcePartialWeek: true');
+        }
+        console.log('📋 [ALGORITHM] Found existing plan with 0 tasks - will replace it');
+      }
+
+      // Step 5: Calculate generation parameters
+      console.log('📊 [ALGORITHM] Step 5: Calculate generation parameters');
+      const daysToGenerate = remainingDays;
+      const totalTasks = tasksPerDay * daysToGenerate.length;
+      
+      console.log(`   - Days to generate: [${daysToGenerate.join(', ')}]`);
+      console.log(`   - Total tasks to generate: ${totalTasks}`);
+
+      if (totalTasks === 0) {
+        throw new Error('No days available for task generation');
+      }
+
+      // Step 6: Create or update plan
+      console.log('📋 [ALGORITHM] Step 6: Plan creation/update');
+      let planId: string;
+      let planData: Omit<WeeklyPostingPlan, 'id'>;
+
+      if (existingPlan) {
+        console.log('📋 [ALGORITHM] Updating existing plan');
+        planId = existingPlan.id;
+        planData = {
+          weekStartDate: existingPlan.weekStartDate,
+          weekEndDate: existingPlan.weekEndDate,
+          totalTasks,
+          generatedAt: new Date().toISOString(),
+          status: 'active'
+        };
+        await updateDoc(doc(db, this.COLLECTIONS.WEEKLY_PLANS, planId), planData);
+      } else {
+        console.log('📋 [ALGORITHM] Creating new plan');
+        planData = {
+          weekStartDate: start.toISOString().split('T')[0],
+          weekEndDate: end.toISOString().split('T')[0],
+          totalTasks,
+          generatedAt: new Date().toISOString(),
+          status: 'active'
+        };
+
+        const planRef = await addDoc(collection(db, this.COLLECTIONS.WEEKLY_PLANS), planData);
+        planId = planRef.id;
+      }
+
+      console.log(`✅ [ALGORITHM] Plan ready with ID: ${planId}`);
+
+      // Step 7: Clear existing tasks if replacing
+      if (existingPlan) {
+        console.log('🗑️ [ALGORITHM] Step 7: Clearing existing tasks');
+        const existingTasksSnapshot = await getDocs(
+          query(collection(db, this.COLLECTIONS.WEEKLY_TASKS), where('planId', '==', planId))
+        );
+        
+        if (!existingTasksSnapshot.empty) {
+          const deletePromises = existingTasksSnapshot.docs.map(doc => 
+            deleteDoc(doc(db, this.COLLECTIONS.WEEKLY_TASKS, doc.id))
+          );
+          await Promise.all(deletePromises);
+          console.log(`🗑️ [ALGORITHM] Cleared ${existingTasksSnapshot.size} existing tasks`);
+        }
+      }
+
+      // Step 8: Generate tasks
+      console.log('🔄 [ALGORITHM] Step 8: Task generation');
+      console.log('🔄 [ALGORITHM] Starting task creation loop...');
+      
+      const tasks: Omit<WeeklyTask, 'id'>[] = [];
+      let taskCount = 0;
+
+      for (const dayOfWeek of daysToGenerate) {
+        console.log(`📅 [ALGORITHM] Processing day ${dayOfWeek} (${['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'][dayOfWeek - 1]})...`);
+        
+        // Calculate the actual date for this day
+        const dayDate = new Date(start);
+        dayDate.setDate(start.getDate() + (dayOfWeek - 1));
+        console.log(`   - Day date: ${dayDate.toDateString()}`);
+        
+        for (let taskIndex = 0; taskIndex < tasksPerDay; taskIndex++) {
+          // Calculate scheduled time
+          const [hours, minutes] = startTimeStr.split(':').map(Number);
+          const scheduledTime = new Date(dayDate);
+          scheduledTime.setHours(hours + Math.floor((taskIndex * timeInterval) / 60),
+                                (minutes + (taskIndex * timeInterval)) % 60, 0, 0);
+
+          // Simple round-robin selection
+          const accountIndex = taskCount % accounts.length;
+          const groupIndex = taskCount % groups.length;
+          const textIndex = taskCount % texts.length;
+          const imageIndex = images.length > 0 ? taskCount % images.length : -1;
+
+          const account = accounts[accountIndex];
+          const group = groups[groupIndex];
+          const text = texts[textIndex];
+          const image = imageIndex >= 0 ? images[imageIndex] : null;
+
+          console.log(`   - Task ${taskCount + 1}: ${scheduledTime.toISOString()}`);
+          console.log(`     Account: ${account.name}`);
+          console.log(`     Group: ${group.name}`);
+          console.log(`     Text: ${text.title}`);
+          if (image) console.log(`     Image: ${image.filename}`);
+
+          const task: Omit<WeeklyTask, 'id'> = {
+            planId,
+            dayOfWeek,
+            accountId: account.id,
+            accountName: account.name,
+            groupId: group.id,
+            groupName: group.name,
+            groupUrl: group.url,
+            groupMemberCount: group.memberCount || 0,
+            textId: text.id,
+            textTitle: text.title,
+            textContent: text.content,
+            imageId: image?.id,
+            imageUrl: image?.url,
+            imageFilename: image?.filename,
+            scheduledTime: scheduledTime.toISOString(),
+            status: 'pending',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+
+          tasks.push(task);
+          taskCount++;
+        }
+      }
+
+      console.log(`✅ [ALGORITHM] Generated ${tasks.length} tasks successfully`);
+
+      // Step 9: Save tasks to database
+      console.log('💾 [ALGORITHM] Step 9: Saving tasks to database');
+      let savedCount = 0;
+      
+      for (const task of tasks) {
+        await addDoc(collection(db, this.COLLECTIONS.WEEKLY_TASKS), task);
+        savedCount++;
+        
+        if (savedCount % 5 === 0) {
+          console.log(`💾 [ALGORITHM] Saved ${savedCount}/${tasks.length} tasks...`);
+        }
+      }
+
+      console.log(`✅ [ALGORITHM] Successfully saved all ${savedCount} tasks`);
+
+      // Step 10: Return result
+      console.log('🎉 [ALGORITHM] === GENERATION COMPLETE ===');
+      console.log(`🎯 [ALGORITHM] Final result: ${totalTasks} tasks, ${savedCount} saved`);
+
+      return {
+        id: planId,
+        ...planData
+      };
+      
+    } catch (error) {
+      console.error('❌ [ALGORITHM] Error in plan generation:', error);
+      console.error('❌ [ALGORITHM] Stack trace:', error.stack);
+      throw error;
+    }
+  }
+
+  // Get tasks for current week
+  static async getCurrentWeekTasks(): Promise<WeeklyTask[]> {
+    try {
+      const plan = await this.getCurrentWeekPlan();
+      if (!plan) return [];
+
+      const q = query(
+        collection(db, this.COLLECTIONS.WEEKLY_TASKS),
+        where('planId', '==', plan.id),
+        orderBy('scheduledTime', 'asc')
+      );
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as WeeklyTask[];
+    } catch (error) {
+      console.error('Error getting current week tasks:', error);
+      return [];
+    }
+  }
+
+  // Get today's tasks
+  static async getTodaysTasks(): Promise<WeeklyTask[]> {
+    try {
+      const tasks = await this.getCurrentWeekTasks();
+      const today = new Date().toDateString();
+      
+      return tasks.filter(task => {
+        const taskDate = new Date(task.scheduledTime).toDateString();
+        return taskDate === today;
+      });
+    } catch (error) {
+      console.error('Error getting today\'s tasks:', error);
+      return [];
+    }
+  }
+
+  // Update task status
+  static async updateTaskStatus(taskId: string, status: 'completed' | 'failed' | 'joining', errorMessage?: string): Promise<void> {
+    try {
+      const taskRef = doc(db, this.COLLECTIONS.WEEKLY_TASKS, taskId);
+      const updateData: any = {
+        status,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (status === 'completed') {
+        updateData.completedAt = new Date().toISOString();
+      } else if (status === 'failed' && errorMessage) {
+        updateData.errorMessage = errorMessage;
+      }
+
+      await updateDoc(taskRef, updateData);
+    } catch (error) {
+      console.error('Error updating task status:', error);
+      throw error;
+    }
+  }
+
+  // Clear current week plan
+  static async clearCurrentWeekPlan(): Promise<void> {
+    try {
+      const plan = await this.getCurrentWeekPlan();
+      if (!plan) return;
+
+      // Delete all tasks
+      const tasksSnapshot = await getDocs(
+        query(collection(db, this.COLLECTIONS.WEEKLY_TASKS), where('planId', '==', plan.id))
+      );
+      
+      const deletePromises = tasksSnapshot.docs.map((document: any) =>
+        deleteDoc(doc(db, this.COLLECTIONS.WEEKLY_TASKS, document.id))
+      );
+      
+      await Promise.all(deletePromises);
+
+      // Delete the plan
+      await deleteDoc(doc(db, this.COLLECTIONS.WEEKLY_PLANS, plan.id));
+
+      console.log('✅ Cleared current week plan and all tasks');
+    } catch (error) {
+      console.error('Error clearing current week plan:', error);
+      throw error;
+    }
+  }
+
+  // Get statistics for current week
+  static async getCurrentWeekStats(): Promise<{
+    totalTasks: number;
+    completedTasks: number;
+    pendingTasks: number;
+    failedTasks: number;
+    joiningTasks: number;
+    groupsUsed: number;
+    accountsUsed: number;
+  }> {
+    try {
+      const tasks = await this.getCurrentWeekTasks();
+
+      const stats = {
+        totalTasks: tasks.length,
+        completedTasks: tasks.filter(t => t.status === 'completed').length,
+        pendingTasks: tasks.filter(t => t.status === 'pending').length,
+        failedTasks: tasks.filter(t => t.status === 'failed').length,
+        joiningTasks: tasks.filter(t => t.status === 'joining').length,
+        groupsUsed: new Set(tasks.map(t => t.groupId)).size,
+        accountsUsed: new Set(tasks.map(t => t.accountId)).size
+      };
+
+      return stats;
+    } catch (error) {
+      console.error('Error getting current week stats:', error);
+      return {
+        totalTasks: 0,
+        completedTasks: 0,
+        pendingTasks: 0,
+        failedTasks: 0,
+        joiningTasks: 0,
+        groupsUsed: 0,
+        accountsUsed: 0
+      };
+    }
+  }
+}

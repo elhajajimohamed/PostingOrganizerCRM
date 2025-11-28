@@ -86,10 +86,10 @@ export function GroupsList() {
     // Filter by search term
     if (searchTerm.trim()) {
       filtered = filtered.filter(group =>
-        group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        group.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        group.language.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        group.url.toLowerCase().includes(searchTerm.toLowerCase())
+        (group.name && group.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (group.tags && group.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))) ||
+        (group.language && group.language.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (group.url && group.url.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
@@ -324,7 +324,7 @@ export function GroupsList() {
               <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
               </svg>
-              Import JSON
+              Import Bulks
             </Button>
             <Button
               onClick={() => setShowForm(true)}
@@ -449,7 +449,7 @@ export function GroupsList() {
                           👥
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{group.name}</p>
+                          <p className="text-sm font-medium" title={group.name}>{group.name}</p>
                           <p className="text-xs text-gray-500 truncate">{group.url}</p>
                         </div>
                       </div>
@@ -621,7 +621,7 @@ export function GroupsList() {
                  <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                  </svg>
-                 Import JSON
+                 Import Bulks
                </Button>
              </>
            ) : null;
@@ -755,7 +755,7 @@ export function GroupsList() {
 
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <CardTitle className="text-lg truncate">{group.name}</CardTitle>
+                        <CardTitle className="text-lg" title={group.name}>{group.name}</CardTitle>
                         <CardDescription className="truncate">
                           {group.url}
                         </CardDescription>

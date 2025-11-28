@@ -10,6 +10,7 @@ import { CallCenter } from '@/lib/types/external-crm';
 import { CallCenterForm } from './call-center-form';
 import { ContactManagement } from './contact-management';
 import { InteractionHistory } from './interaction-history';
+import { SummaryManagement } from './summary-management';
 import { PhoneDetectionService } from '@/lib/services/phone-detection-service';
 import {
   Edit,
@@ -186,6 +187,11 @@ export function CallCenterDetailView({ callCenter, onUpdate, onEdit, onDelete }:
                   🔍 Found: {new Date(callCenter.foundDate).toLocaleDateString()}
                 </p>
               )}
+              {callCenter.callHistory && callCenter.callHistory.length > 0 && (
+                <p className="text-sm">
+                  📋 Call Logs: {callCenter.callHistory.length} ({callCenter.callHistory.length === 1 ? 'entry' : 'entries'})
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -202,6 +208,20 @@ export function CallCenterDetailView({ callCenter, onUpdate, onEdit, onDelete }:
               {callCenter.notes && (
                 <p className="text-sm text-gray-600 line-clamp-2">{callCenter.notes}</p>
               )}
+              {callCenter.callHistory && callCenter.callHistory.length > 0 && (
+                <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                  <p className="font-medium text-blue-800">Last Call Log:</p>
+                  <p className="text-blue-700">
+                    {callCenter.callHistory[0].outcome} on {new Date(callCenter.callHistory[0].date).toLocaleDateString()}
+                    {callCenter.callHistory[0].duration > 0 && ` (${callCenter.callHistory[0].duration}min)`}
+                  </p>
+                  {callCenter.callHistory[0].notes && (
+                    <p className="text-blue-600 text-xs mt-1 line-clamp-1">
+                      {callCenter.callHistory[0].notes}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -209,10 +229,14 @@ export function CallCenterDetailView({ callCenter, onUpdate, onEdit, onDelete }:
 
       {/* Management Tabs */}
       <Tabs defaultValue="contacts" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="contacts" className="flex items-center">
             <Users className="w-4 h-4 mr-2" />
             Contact Management
+          </TabsTrigger>
+          <TabsTrigger value="summary" className="flex items-center">
+            <Target className="w-4 h-4 mr-2" />
+            Summary
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center">
             <Target className="w-4 h-4 mr-2" />
@@ -224,6 +248,13 @@ export function CallCenterDetailView({ callCenter, onUpdate, onEdit, onDelete }:
           <ContactManagement
             callCenterId={callCenter.id}
             callCenterName={callCenter.name}
+          />
+        </TabsContent>
+
+        <TabsContent value="summary" className="space-y-4">
+          <SummaryManagement
+            callCenter={callCenter}
+            onUpdate={onUpdate}
           />
         </TabsContent>
 

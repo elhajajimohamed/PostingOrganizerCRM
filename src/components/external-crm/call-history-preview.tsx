@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CallLog } from '@/lib/types/external-crm';
 import { ExternalCRMSubcollectionsService } from '@/lib/services/external-crm-service';
+import { formatDuration } from '@/lib/utils/duration';
 import { MessageSquare, Clock, Calendar, History } from 'lucide-react';
 
 interface CallHistoryPreviewProps {
@@ -91,7 +92,7 @@ export function CallHistoryPreview({ callCenterId }: CallHistoryPreviewProps) {
                       {callLog.duration > 0 && (
                         <>
                           <Clock className="w-3 h-3" />
-                          {callLog.duration} min
+                          {formatDuration(callLog.duration)}
                         </>
                       )}
                     </div>

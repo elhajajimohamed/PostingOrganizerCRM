@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 
 interface CalendarEvent {
   id: string;
@@ -20,14 +19,13 @@ interface CalendarEvent {
   createdAt: string;
   updatedAt: string;
   firebaseTaskId?: string;
+  summary?: string;
 }
 
 // GET /api/external-crm/calendar - Get all calendar events
 export async function GET() {
   try {
-    const eventsRef = collection(db, 'calendarEvents');
-    const q = query(eventsRef, orderBy('date', 'asc'));
-    const snapshot = await getDocs(q);
+    const snapshot = await adminDb.collection('calendarEvents').get();
 
     const events: CalendarEvent[] = [];
     snapshot.forEach((doc) => {
@@ -50,6 +48,7 @@ export async function GET() {
         createdAt: data.createdAt || '',
         updatedAt: data.updatedAt || '',
         firebaseTaskId: data.firebaseTaskId || '',
+        summary: data.summary || '',
       } as CalendarEvent);
     });
 
@@ -67,7 +66,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { title, description, date, time, location, type, callCenterId, callCenterName, relatedType, relatedId, color, firebaseTaskId } = body;
+    const { title, description, date, time, location, type, callCenterId, callCenterName, relatedType, relatedId, color, firebaseTaskId, summary } = body;
 
     if (!title || !date) {
       return NextResponse.json(
@@ -80,20 +79,21 @@ export async function POST(request: NextRequest) {
       title,
       description,
       date,
-      time,
-      location,
       type: type || 'meeting',
       color: color || '',
       callCenterId: callCenterId || '',
       callCenterName: callCenterName || '',
+      ...(time && { time }),
+      ...(location && { location }),
       ...(relatedType && { relatedType }),
       ...(relatedId && { relatedId }),
       ...(firebaseTaskId && { firebaseTaskId }),
+      ...(summary && { summary }),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    const docRef = await addDoc(collection(db, 'calendarEvents'), eventData);
+    const docRef = await adminDb.collection('calendarEvents').add(eventData);
 
     const newEvent: CalendarEvent = {
       id: docRef.id,

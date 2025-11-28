@@ -143,6 +143,45 @@ export interface Settings {
   browsers?: string[];
   // Phone detection configuration
   phoneDetection?: PhoneDetectionConfig;
+  // Daily calls configuration
+  dailyCalls?: {
+    daily_suggestion_count: number;
+    cool_off_days: number;
+    max_attempts_15_days: number;
+    max_attempts_90_days: number;
+    score_penalty_90_days: number;
+    scoring_weights: {
+      mobile_available: number;
+      days_since_last_call: number;
+      positions_count: number;
+      lead_quality_score: number;
+      company_size_score: number;
+      recent_attempts_penalty: number;
+      business_hours_score: number;
+    };
+    business_hours: {
+      [country: string]: {
+        timezone: string;
+        work_hours_start: number;
+        work_hours_end: number;
+        work_days: number[];
+      };
+    };
+    // WhatsApp settings
+    daily_whatsapp_limit?: number;
+    whatsapp_templates?: string[];
+  };
+  // Daily WhatsApp configuration
+  dailyWhatsApp?: {
+    daily_suggestion_count: number;
+    scoring_weights: {
+      mobile_confidence: number;
+      positions_count: number;
+      days_since_last_contact: number;
+      mobile_count: number;
+      business_type: number;
+    };
+  };
 }
 
 export interface PhoneDetectionConfig {
@@ -199,6 +238,7 @@ export interface CreateGroupData {
   language: string;
   accountId?: string;
   memberCount?: number;
+  facebookAccountId?: string; // For Facebook CRM integration
 }
 
 export interface CreateTemplateData {
@@ -291,4 +331,52 @@ export interface MediaBundle {
   category: string;
   created_by: string;
   created_at: Date;
+}
+
+// Posting Task types for the new simplified system
+export interface PostingTask {
+  id?: string;
+  accountId: string;
+  groupId: string;
+  textId: string; // Reference to text variant
+  mediaId: string; // Reference to media
+  status: 'pending' | 'posted' | 'skipped' | 'failed';
+  createdAt: Date;
+  postedAt?: Date;
+  notes?: string;
+  // For rotation logic
+  rotationScore?: number;
+  lastUsedInGroup?: Date;
+  lastUsedByAccount?: Date;
+}
+
+export interface PostingText {
+  id?: string;
+  content: string;
+  tags: string[];
+  usageCount: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PostingHistory {
+  id?: string;
+  taskId: string;
+  accountId: string;
+  groupId: string;
+  textId: string;
+  mediaId: string;
+  postedAt: Date;
+  status: 'success' | 'failed' | 'skipped';
+  notes?: string;
+}
+
+// Safety rules configuration
+export interface SafetyRules {
+  delayBetweenPostsMinutes: { min: number; max: number };
+  groupCooldownDays: number;
+  maxPostsPerAccountPerDay: number;
+  maxPostsPerGroupPerDay: number;
+  avoidRecentWarnings: boolean;
+  updatedAt: Date;
 }

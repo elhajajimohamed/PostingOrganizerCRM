@@ -102,7 +102,7 @@ export function useRealtimeData<T extends DocumentData>({
 // Specialized hooks for specific collections
 export function useRealtimeAccounts() {
   return useRealtimeData({
-    collectionName: 'accounts',
+    collectionName: 'accountsVOIP',
     orderBy: { field: 'createdAt', direction: 'desc' },
   });
 }
@@ -147,9 +147,11 @@ export function useRealtimePostHistory(limitCount?: number) {
 export function useRealtimeMedia(userId?: string) {
   const whereConditions = userId ? [{ field: 'uploadedBy', operator: '==', value: userId }] : [];
 
+  // Don't use orderBy when there are where conditions to avoid composite index requirement
+  // The component will handle sorting client-side if needed
   return useRealtimeData({
     collectionName: 'media',
-    orderBy: { field: 'uploadedAt', direction: 'desc' },
+    orderBy: whereConditions.length === 0 ? { field: 'uploadedAt', direction: 'desc' } : undefined,
     where: whereConditions,
   });
 }

@@ -27,7 +27,9 @@ import {
   TrendingUp,
   AlertCircle,
   CheckCircle2,
-  Info
+  Info,
+  Calendar,
+  ArrowRightLeft
 } from 'lucide-react';
 
 interface DataIntegrityDashboardProps {
@@ -41,6 +43,7 @@ export function DataIntegrityDashboard({ callCenters, loading = false }: DataInt
   const [isCreatingBackup, setIsCreatingBackup] = useState(false);
   const [lastValidation, setLastValidation] = useState<ValidationResult | null>(null);
   const [showReportDetails, setShowReportDetails] = useState(false);
+  const [isSyncingCalendar, setIsSyncingCalendar] = useState(false);
 
   // Calculate data quality score
   const dataQuality = useMemo(() => {
@@ -83,6 +86,29 @@ export function DataIntegrityDashboard({ callCenters, loading = false }: DataInt
       setLastValidation(validation);
     } catch (error) {
       console.error('Error validating data:', error);
+    }
+  };
+
+  const syncCalendarToSteps = async () => {
+    try {
+      setIsSyncingCalendar(true);
+      const response = await fetch('/api/external-crm/sync-calendar-to-steps', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Sync completed! ${result.synced} steps created, ${result.skipped} already existed.`);
+        await generateIntegrityReport(); // Refresh report
+      } else {
+        const error = await response.json();
+        alert(`Sync failed: ${error.error}`);
+      }
+    } catch (error) {
+      console.error('Error syncing calendar to steps:', error);
+      alert('Failed to sync calendar events to steps. Please try again.');
+    } finally {
+      setIsSyncingCalendar(false);
     }
   };
 
@@ -243,9 +269,10 @@ export function DataIntegrityDashboard({ callCenters, loading = false }: DataInt
 
       {/* Integrity Management Tabs */}
       <Tabs defaultValue="validation" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="validation">Validation</TabsTrigger>
           <TabsTrigger value="backup">Backup & Recovery</TabsTrigger>
+          <TabsTrigger value="sync">Data Sync</TabsTrigger>
           <TabsTrigger value="audit">Audit Logs</TabsTrigger>
           <TabsTrigger value="cleanup">Data Cleanup</TabsTrigger>
         </TabsList>
@@ -432,6 +459,81 @@ export function DataIntegrityDashboard({ callCenters, loading = false }: DataInt
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="sync" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <ArrowRightLeft className="w-5 h-5 mr-2" />
+                Data Synchronization
+              </CardTitle>
+              <p className="text-sm text-gray-600">
+                Sync data between different systems and ensure consistency across the platform.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Calendar to Steps Sync */}
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50 rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <Calendar className="w-5 h-5 text-blue-600 mr-2" />
+                      <h4 className="font-medium text-blue-800">Calendar Events to Steps</h4>
+                    </div>
+                    <p className="text-sm text-blue-600 mb-3">
+                      Automatically create steps in call centers for calendar events that don't have corresponding steps.
+                    </p>
+                    <Button
+                      onClick={syncCalendarToSteps}
+                      disabled={isSyncingCalendar}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      {isSyncingCalendar ? (
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                      ) : (
+                        <ArrowRightLeft className="w-4 h-4 mr-2" />
+                      )}
+                      Sync Calendar to Steps
+                    </Button>
+                  </div>
+
+                  <div className="text-xs text-gray-500 space-y-1">
+                    <p>• Scans all calendar events with call center associations</p>
+                    <p>• Creates steps for events that don't have them</p>
+                    <p>• Prevents duplicate steps for existing events</p>
+                    <p>• Links steps back to original calendar events</p>
+                  </div>
+                </div>
+
+                {/* Future sync operations can be added here */}
+                <div className="space-y-4">
+                  <div className="p-4 bg-gray-50 rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <Info className="w-5 h-5 text-gray-600 mr-2" />
+                      <h4 className="font-medium text-gray-800">More Sync Operations</h4>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-3">
+                      Additional synchronization features will be available here in future updates.
+                    </p>
+                    <div className="text-xs text-gray-500">
+                      <p>• Contact synchronization</p>
+                      <p>• External system imports</p>
+                      <p>• Data deduplication sync</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <Alert>
+                <Info className="w-4 h-4" />
+                <AlertDescription>
+                  Sync operations ensure data consistency across different parts of the system.
+                  These operations are safe and can be run multiple times.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="audit" className="space-y-6">

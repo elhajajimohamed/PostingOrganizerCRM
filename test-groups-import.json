@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Test Marketing Group Morocco",
+    "url": "https://facebook.com/groups/test-marketing-morocco",
+    "memberCount": 2500,
+    "language": "French",
+    "description": "A test group for marketing discussions in Morocco"
+  },
+  {
+    "name": "Business Network Casablanca",
+    "url": "https://facebook.com/groups/business-casa",
+    "memberCount": 1500,
+    "language": "French",
+    "description": "Professional business networking group in Casablanca"
+  },
+  {
+    "name": "Digital Marketing Tunisia",
+    "url": "https://facebook.com/groups/digital-marketing-tunisia",
+    "memberCount": 3200,
+    "language": "French",
+    "description": "Digital marketing professionals and enthusiasts in Tunisia"
+  }
+]

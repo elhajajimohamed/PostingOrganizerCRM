@@ -27,6 +27,7 @@ export function ClientTopUpsManagement({ callCenters, onDataChange }: ClientTopU
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingTopup, setEditingTopup] = useState<ClientTopup | undefined>();
+  const [currentCallCenter, setCurrentCallCenter] = useState<CallCenter | null>(null);
   const [formData, setFormData] = useState({
     clientId: '',
     clientName: '',
@@ -55,7 +56,11 @@ export function ClientTopUpsManagement({ callCenters, onDataChange }: ClientTopU
 
   useEffect(() => {
     loadTopups();
-  }, []);
+    // Set current call center from the callCenters prop
+    if (callCenters.length > 0) {
+      setCurrentCallCenter(callCenters[0]);
+    }
+  }, [callCenters]);
 
   const loadTopups = async () => {
     try {
@@ -101,11 +106,10 @@ export function ClientTopUpsManagement({ callCenters, onDataChange }: ClientTopU
     if (!formData.date) {
       errors.date = 'Date is required';
     } else {
-      const selectedDate = new Date(formData.date);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const selectedDateStr = formData.date;
+      const todayStr = new Date().toISOString().split('T')[0];
 
-      if (selectedDate > today) {
+      if (selectedDateStr > todayStr) {
         errors.date = 'Date cannot be in the future';
       }
     }
@@ -245,17 +249,27 @@ export function ClientTopUpsManagement({ callCenters, onDataChange }: ClientTopU
   };
 
   const resetForm = () => {
-    setFormData({
+    // Pre-fill with current call center if available (when in detail modal)
+    const prefilledData = currentCallCenter ? {
+      clientId: currentCallCenter.id.toString(),
+      clientName: currentCallCenter.name,
+      callCenterName: currentCallCenter.name,
+      country: currentCallCenter.country,
+    } : {
       clientId: '',
       clientName: '',
       callCenterName: '',
+      country: '',
+    };
+
+    setFormData({
+      ...prefilledData,
       amountEUR: 0,
       paymentMethod: '',
       date: new Date().toISOString().split('T')[0],
-      country: '',
       notes: '',
     });
-    setCallCenterSearch('');
+    setCallCenterSearch(currentCallCenter?.name || '');
     setShowCallCenterDropdown(false);
     setFormErrors({});
     setIsSubmitting(false);
@@ -278,6 +292,9 @@ export function ClientTopUpsManagement({ callCenters, onDataChange }: ClientTopU
   // Filtered and sorted topups
   const filteredAndSortedTopups = useMemo(() => {
     let filtered = topups.filter(topup => {
+      // Filter by call centers if provided (for modal context)
+      const matchesCallCenter = callCenters.length === 0 || callCenters.some(cc => cc.id.toString() === topup.clientId);
+
       const matchesSearch = !searchTerm ||
         topup.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         topup.callCenterName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -286,7 +303,7 @@ export function ClientTopUpsManagement({ callCenters, onDataChange }: ClientTopU
       const matchesPaymentMethod = !filterPaymentMethod || topup.paymentMethod === filterPaymentMethod;
       const matchesCountry = !filterCountry || topup.country === filterCountry;
 
-      return matchesSearch && matchesPaymentMethod && matchesCountry;
+      return matchesCallCenter && matchesSearch && matchesPaymentMethod && matchesCountry;
     });
 
     // Sort the filtered results
@@ -318,7 +335,7 @@ export function ClientTopUpsManagement({ callCenters, onDataChange }: ClientTopU
     });
 
     return filtered;
-  }, [topups, searchTerm, filterPaymentMethod, filterCountry, sortBy, sortOrder]);
+  }, [topups, callCenters, searchTerm, filterPaymentMethod, filterCountry, sortBy, sortOrder]);
 
   const totalTopups = topups.reduce((sum, topup) => sum + topup.amountEUR, 0);
   const filteredTotal = filteredAndSortedTopups.reduce((sum, topup) => sum + topup.amountEUR, 0);
@@ -383,7 +400,7 @@ export function ClientTopUpsManagement({ callCenters, onDataChange }: ClientTopU
                   <SelectValue placeholder="All methods" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All methods</SelectItem>
+                  <SelectItem value="all">All methods</SelectItem>
                   {PAYMENT_METHODS.map(method => (
                     <SelectItem key={method} value={method}>
                       {method}
@@ -399,7 +416,7 @@ export function ClientTopUpsManagement({ callCenters, onDataChange }: ClientTopU
                   <SelectValue placeholder="All countries" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All countries</SelectItem>
+                  <SelectItem value="all">All countries</SelectItem>
                   {COUNTRIES.map(country => (
                     <SelectItem key={country} value={country}>
                       {country}

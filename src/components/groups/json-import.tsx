@@ -142,7 +142,8 @@ export function JSONImport({ onImportSuccess, onCancel }: JSONImportProps) {
             tags: groupData.tags,
             language: groupData.language,
             accountId: selectedAccount,
-            memberCount: groupData.memberCount
+            memberCount: groupData.memberCount,
+            facebookAccountId: selectedAccount // Also set facebookAccountId for Facebook CRM
           });
 
           successCount++;
@@ -173,9 +174,9 @@ export function JSONImport({ onImportSuccess, onCancel }: JSONImportProps) {
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle>Import Groups from JSON</CardTitle>
+        <CardTitle>Import Facebook Groups</CardTitle>
         <CardDescription>
-          Upload a JSON file containing Facebook group data with names, URLs, member counts, and other information
+          Upload a JSON file containing Facebook group data. After selecting a file, you'll be able to assign the groups to a Facebook account.
         </CardDescription>
       </CardHeader>
       <CardContent>

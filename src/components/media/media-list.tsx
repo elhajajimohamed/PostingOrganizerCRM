@@ -64,8 +64,8 @@ export function MediaList() {
     // Filter by search term
     if (searchTerm.trim()) {
       filtered = filtered.filter(m =>
-        m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        m.category.toLowerCase().includes(searchTerm.toLowerCase())
+        (m.name && m.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (m.category && m.category.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 

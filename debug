@@ -1,0 +1,92 @@
+import admin from 'firebase-admin';
+import { readFileSync } from 'fs';
+
+// Initialize Firebase Admin SDK for debugging
+const serviceAccount = JSON.parse(readFileSync('./firebase-key.json', 'utf8'));
+
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: 'https://posting-organizer-crm-new.firebaseio.com'
+});
+
+async function debugAuth() {
+  console.log('🔍 Firebase Auth Debugging Tool');
+  console.log('='.repeat(50));
+  
+  try {
+    // Check service account
+    console.log('✅ Firebase Admin initialized successfully');
+    console.log('📧 Service account email:', serviceAccount.client_email);
+    
+    // List all users in Firebase Auth
+    console.log('\n👥 Checking Firebase Authentication users...');
+    const listUsersResult = await admin.auth().listUsers();
+    
+    if (listUsersResult.users.length === 0) {
+      console.log('❌ No users found in Firebase Authentication!');
+      console.log('📝 This means you need to create a user account first.');
+    } else {
+      console.log(`✅ Found ${listUsersResult.users.length} user(s) in Firebase Authentication:`);
+      listUsersResult.users.forEach((user, index) => {
+        console.log(`   ${index + 1}. ${user.email} (UID: ${user.uid})`);
+        console.log(`      - Email verified: ${user.emailVerified}`);
+        console.log(`      - Created: ${user.metadata.creationTime}`);
+      });
+    }
+    
+    // Check Firestore users collection
+    console.log('\n📊 Checking Firestore users collection...');
+    const usersSnapshot = await admin.firestore().collection('users').get();
+    
+    if (usersSnapshot.empty) {
+      console.log('❌ No documents found in Firestore "users" collection!');
+      console.log('📝 This could mean:');
+      console.log('   - No users have logged in yet');
+      console.log('   - User documents are not being created properly');
+    } else {
+      console.log(`✅ Found ${usersSnapshot.size} document(s) in Firestore users collection:`);
+      usersSnapshot.docs.forEach((doc, index) => {
+        const data = doc.data();
+        console.log(`   ${index + 1}. UID: ${doc.id}`);
+        console.log(`      - Email: ${data.email}`);
+        console.log(`      - Display Name: ${data.displayName}`);
+        console.log(`      - Role: ${data.role}`);
+        console.log(`      - Created: ${data.createdAt?.toDate?.() || data.createdAt}`);
+      });
+    }
+    
+    // Test authentication with existing user
+    if (listUsersResult.users.length > 0) {
+      console.log('\n🔐 Testing user authentication...');
+      const testUser = listUsersResult.users[0];
+      console.log(`Testing with user: ${testUser.email}`);
+      
+      try {
+        // This would require the actual password which we don't have
+        console.log('💡 To test login:');
+        console.log(`   1. Go to your application`);
+        console.log(`   2. Try logging in with: ${testUser.email}`);
+        console.log(`   3. Check the browser console for authentication errors`);
+      } catch (error) {
+        console.log('⚠️ Authentication test failed:', error.message);
+      }
+    }
+    
+  } catch (error) {
+    console.error('❌ Debugging failed:', error.message);
+    
+    if (error.code === 'PERMISSION_DENIED') {
+      console.log('💡 This might be a permissions issue with your service account');
+    } else if (error.code === 'INVALID_CREDENTIAL') {
+      console.log('💡 This might be an issue with your Firebase credentials');
+    }
+  }
+  
+  console.log('\n📋 Troubleshooting Steps:');
+  console.log('1. If no users exist: Create a user account through the app');
+  console.log('2. If users exist but can\'t login: Check browser console for errors');
+  console.log('3. If Firebase config issues: Verify your .env.local settings');
+  console.log('4. If authentication bypass is still active: Restart the development server');
+}
+
+debugAuth().catch(console.error);

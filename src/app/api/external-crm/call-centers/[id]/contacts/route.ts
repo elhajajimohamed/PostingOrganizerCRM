@@ -1,39 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ExternalCRMSubcollectionsService } from '@/lib/services/external-crm-service';
-
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const { id } = await params;
-    const contacts = await ExternalCRMSubcollectionsService.getContacts(id);
-
-    return NextResponse.json({ contacts });
-  } catch (error) {
-    console.error('Error fetching contacts:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch contacts' },
-      { status: 500 }
-    );
-  }
-}
+import { CrossSectionContactsService } from '@/lib/services/external-crm-service';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
+    const callCenterId = params.id;
     const contactData = await request.json();
 
-    const contactId = await ExternalCRMSubcollectionsService.addContact(id, contactData);
+    if (!callCenterId) {
+      return NextResponse.json(
+        { error: 'Call center ID is required' },
+        { status: 400 }
+      );
+    }
 
-    return NextResponse.json({ id: contactId, success: true });
+    const contactId = await CrossSectionContactsService.createContactForCallCenter(
+      callCenterId,
+      contactData
+    );
+
+    return NextResponse.json({ contactId });
   } catch (error) {
-    console.error('Error creating contact:', error);
+    console.error('Error adding contact to call center:', error);
     return NextResponse.json(
-      { error: 'Failed to create contact' },
+      { error: 'Failed to add contact' },
       { status: 500 }
     );
   }

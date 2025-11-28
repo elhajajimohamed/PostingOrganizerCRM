@@ -209,11 +209,18 @@ export class PhoneDetectionService {
     };
   }
 
-  static getWhatsAppLink(phone: string): string {
+  static getWhatsAppLink(phone: string, message?: string): string {
     const normalized = this.normalizePhone(phone);
+    let phoneNumber = normalized;
     if (normalized.startsWith('+')) {
-      return `https://wa.me/${normalized.substring(1)}`;
+      phoneNumber = normalized.substring(1);
     }
-    return `https://wa.me/${normalized}`;
+
+    const baseUrl = `https://wa.me/${phoneNumber}`;
+    if (message) {
+      const encodedMessage = encodeURIComponent(message);
+      return `${baseUrl}?text=${encodedMessage}`;
+    }
+    return baseUrl;
   }
 }

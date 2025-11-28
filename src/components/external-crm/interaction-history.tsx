@@ -13,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Step, CallLog, Recharge } from '@/lib/types/external-crm';
 import { ExternalCRMSubcollectionsService } from '@/lib/services/external-crm-service';
+import { formatDuration } from '@/lib/utils/duration';
 import {
   Plus,
   Edit,
@@ -40,6 +41,9 @@ export function InteractionHistory({ callCenterId, callCenterName }: Interaction
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('steps');
 
+  // Selection state for call logs
+  const [selectedCallLogs, setSelectedCallLogs] = useState<string[]>([]);
+
   // Form states
   const [showStepForm, setShowStepForm] = useState(false);
   const [showCallForm, setShowCallForm] = useState(false);
@@ -59,6 +63,7 @@ export function InteractionHistory({ callCenterId, callCenterName }: Interaction
 
   const [callForm, setCallForm] = useState({
     date: new Date().toISOString().split('T')[0],
+    time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
     duration: 0,
     outcome: '',
     notes: '',
@@ -115,14 +120,74 @@ export function InteractionHistory({ callCenterId, callCenterName }: Interaction
     }
   };
 
+  // Helper function to convert mm/dd/yyyy and time to ISO string, or use now if empty
+  const getCallDateTimeISO = (callDateStr?: string, callTimeStr?: string): string => {
+    console.log('🔍 [DEBUG] getCallDateTimeISO called with:', { callDateStr, callTimeStr });
+
+    if (!callDateStr || callDateStr.trim() === '') {
+      console.log('🔍 [DEBUG] No date provided, using now');
+      return new Date().toISOString();
+    }
+
+    // Parse date assuming it's already in yyyy-mm-dd format from date input
+    const date = new Date(callDateStr);
+    if (isNaN(date.getTime())) {
+      console.warn('Invalid date format, using now:', callDateStr);
+      return new Date().toISOString();
+    }
+
+    // Default time values - use current time if no time provided
+    let hours = new Date().getHours(), minutes = new Date().getMinutes();
+    console.log('🔍 [DEBUG] Initial time values:', { hours, minutes });
+
+    // If time is provided, parse it
+    if (callTimeStr && callTimeStr.trim() !== '') {
+      const timeParts = callTimeStr.split(':');
+      console.log('🔍 [DEBUG] Time parts:', timeParts);
+      if (timeParts.length >= 2) {
+        hours = parseInt(timeParts[0], 10);
+        minutes = parseInt(timeParts[1], 10);
+        console.log('🔍 [DEBUG] Parsed time:', { hours, minutes });
+
+        // Validate time values
+        if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+          console.warn('Invalid time format, using current time:', callTimeStr);
+          hours = new Date().getHours();
+          minutes = new Date().getMinutes();
+        }
+      } else {
+        console.log('No valid time format, using current time');
+      }
+    } else {
+      console.log('No time provided, using current time');
+    }
+
+    // Set the time on the date object
+    date.setHours(hours, minutes, 0, 0);
+    const isoString = date.toISOString();
+    console.log('🔍 [DEBUG] Final date and ISO:', { date: date.toString(), isoString });
+
+    return isoString;
+  };
+
   const handleCallSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
+      console.log('🔍 [DEBUG] handleCallSubmit - callForm:', callForm);
+      const isoDate = getCallDateTimeISO(callForm.date, callForm.time);
+      console.log('🔍 [DEBUG] handleCallSubmit - isoDate:', isoDate);
+      const callLogData = {
+        ...callForm,
+        callTime: callForm.time, // Save the time as callTime for display
+        date: isoDate
+      };
+      console.log('🔍 [DEBUG] handleCallSubmit - callLogData:', callLogData);
+
       if (editingCall) {
-        await ExternalCRMSubcollectionsService.updateCallLog(callCenterId, editingCall.id, callForm);
+        await ExternalCRMSubcollectionsService.updateCallLog(callCenterId, editingCall.id, callLogData);
       } else {
-        await ExternalCRMSubcollectionsService.addCallLog(callCenterId, callForm);
+        await ExternalCRMSubcollectionsService.addCallLog(callCenterId, callLogData);
       }
 
       await loadAllData();
@@ -166,6 +231,7 @@ export function InteractionHistory({ callCenterId, callCenterName }: Interaction
   const resetCallForm = () => {
     setCallForm({
       date: new Date().toISOString().split('T')[0],
+      time: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       duration: 0,
       outcome: '',
       notes: '',
@@ -199,6 +265,7 @@ export function InteractionHistory({ callCenterId, callCenterName }: Interaction
     setEditingCall(call);
     setCallForm({
       date: call.date,
+      time: call.callTime || new Date(call.date).toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }),
       duration: call.duration,
       outcome: call.outcome,
       notes: call.notes,
@@ -249,6 +316,38 @@ export function InteractionHistory({ callCenterId, callCenterName }: Interaction
       await loadAllData();
     } catch (error) {
       console.error('Error deleting recharge:', error);
+    }
+  };
+
+  // Selection handlers for call logs
+  const handleSelectCallLog = (callLogId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedCallLogs(prev => [...prev, callLogId]);
+    } else {
+      setSelectedCallLogs(prev => prev.filter(id => id !== callLogId));
+    }
+  };
+
+  const handleSelectAllCallLogs = (checked: boolean) => {
+    if (checked) {
+      setSelectedCallLogs(callHistory.map(call => call.id));
+    } else {
+      setSelectedCallLogs([]);
+    }
+  };
+
+  const handleBulkDeleteCallLogs = async () => {
+    if (selectedCallLogs.length === 0) return;
+
+    const confirmMessage = `Are you sure you want to delete ${selectedCallLogs.length} call log${selectedCallLogs.length > 1 ? 's' : ''}?`;
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      await ExternalCRMSubcollectionsService.batchDeleteCallLogs(callCenterId, selectedCallLogs);
+      setSelectedCallLogs([]);
+      await loadAllData();
+    } catch (error) {
+      console.error('Error bulk deleting call logs:', error);
     }
   };
 
@@ -446,7 +545,24 @@ export function InteractionHistory({ callCenterId, callCenterName }: Interaction
 
           <TabsContent value="calls" className="space-y-4">
             <div className="flex justify-between items-center">
-              <h3 className="font-semibold">Call History & Notes</h3>
+              <div className="flex items-center space-x-4">
+                <h3 className="font-semibold">Call History & Notes</h3>
+                {selectedCallLogs.length > 0 && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-sm text-gray-600">
+                      {selectedCallLogs.length} selected
+                    </span>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleBulkDeleteCallLogs}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Bulk Remove
+                    </Button>
+                  </div>
+                )}
+              </div>
               <Dialog open={showCallForm} onOpenChange={(open) => {
                 if (!open) {
                   setShowCallForm(false);
@@ -468,26 +584,54 @@ export function InteractionHistory({ callCenterId, callCenterName }: Interaction
                   </DialogHeader>
                   <form onSubmit={handleCallSubmit} className="space-y-4">
                     <div>
-                      <Label htmlFor="callDate">Call Date *</Label>
-                      <Input
-                        id="callDate"
-                        type="date"
-                        value={callForm.date}
-                        onChange={(e) => setCallForm(prev => ({ ...prev, date: e.target.value }))}
-                        required
-                      />
-                    </div>
+                       <Label htmlFor="callDate">Call Date *</Label>
+                       <Input
+                         id="callDate"
+                         type="date"
+                         value={callForm.date}
+                         onChange={(e) => setCallForm(prev => ({ ...prev, date: e.target.value }))}
+                         required
+                       />
+                     </div>
 
-                    <div>
-                      <Label htmlFor="duration">Duration (minutes)</Label>
-                      <Input
-                        id="duration"
-                        type="number"
-                        value={callForm.duration}
-                        onChange={(e) => setCallForm(prev => ({ ...prev, duration: parseInt(e.target.value) || 0 }))}
-                        min="0"
-                      />
-                    </div>
+                     <div>
+                       <Label htmlFor="callTime">Call Time (HH:MM format)</Label>
+                       <Input
+                         id="callTime"
+                         type="text"
+                         value={callForm.time}
+                         onChange={(e) => setCallForm(prev => ({ ...prev, time: e.target.value }))}
+                         placeholder="HH:MM"
+                         pattern="^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$"
+                       />
+                       <p className="text-xs text-gray-500 mt-1">
+                         Enter time in HH:MM format (24-hour). Leave as current time to use now
+                       </p>
+                     </div>
+
+                     <div>
+                       <Label htmlFor="duration">Duration (mm:ss format)</Label>
+                       <Input
+                         id="duration"
+                         type="text"
+                         value={callForm.duration ? formatDuration(callForm.duration) : ''}
+                         onChange={(e) => {
+                           const inputValue = e.target.value;
+                           if (inputValue === '') {
+                             setCallForm(prev => ({ ...prev, duration: 0 }));
+                           } else {
+                             const seconds = parseDuration(inputValue);
+                             setCallForm(prev => ({ ...prev, duration: seconds }));
+                           }
+                         }}
+                         placeholder="Enter duration in mm:ss format (e.g., 4:05 for 4 minutes 5 seconds)"
+                       />
+                       {callForm.duration > 0 && (
+                         <div className="text-xs text-gray-500 mt-1">
+                           Equivalent: {callForm.duration} seconds
+                         </div>
+                       )}
+                     </div>
 
                     <div>
                       <Label htmlFor="outcome">Call Outcome</Label>
@@ -557,8 +701,26 @@ export function InteractionHistory({ callCenterId, callCenterName }: Interaction
               </div>
             ) : (
               <div className="space-y-3">
+                {/* Select All checkbox */}
+                <div className="flex items-center space-x-2 p-3 bg-gray-50 rounded-lg">
+                  <Checkbox
+                    id="select-all-calls"
+                    checked={selectedCallLogs.length === callHistory.length && callHistory.length > 0}
+                    onCheckedChange={handleSelectAllCallLogs}
+                  />
+                  <Label htmlFor="select-all-calls" className="text-sm font-medium">
+                    Select All ({callHistory.length} call{callHistory.length !== 1 ? 's' : ''})
+                  </Label>
+                </div>
+
                 {callHistory.map(call => (
                   <div key={call.id} className="flex items-start space-x-3 p-4 border rounded-lg">
+                    <div className="flex-shrink-0 mt-1">
+                      <Checkbox
+                        checked={selectedCallLogs.includes(call.id)}
+                        onCheckedChange={(checked) => handleSelectCallLog(call.id, !!checked)}
+                      />
+                    </div>
                     <div className="flex-shrink-0 mt-1">
                       <Phone className="w-5 h-5 text-blue-500" />
                     </div>
@@ -569,12 +731,12 @@ export function InteractionHistory({ callCenterId, callCenterName }: Interaction
                             {call.outcome}
                           </Badge>
                           <span className="text-sm text-gray-500">
-                            {new Date(call.date).toLocaleDateString()}
+                            {new Date(call.date).toLocaleDateString()} at {call.callTime || 'N/A'}
                           </span>
                           {call.duration > 0 && (
                             <span className="text-sm text-gray-500 flex items-center">
                               <Clock className="w-3 h-3 mr-1" />
-                              {call.duration}min
+                              {formatDuration(call.duration)}
                             </span>
                           )}
                         </div>

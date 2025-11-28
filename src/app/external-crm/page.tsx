@@ -7,8 +7,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent } from '@/components/ui/card';
 import { ModernTabsNavigation } from '@/components/ui/modern-tabs-navigation';
-import { Building2, Plus, Circle, CheckCircle, Search, Download } from 'lucide-react';
+import { Building2, Plus, Circle, CheckCircle, Search, Download, CheckSquare, Users, Bell, Calculator, Copy } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { CallCenterForm } from '@/components/external-crm/call-center-form';
 import { CallCentersList } from '@/components/external-crm/call-centers-list';
 import { CallCentersDashboard } from '@/components/external-crm/call-centers-dashboard';
@@ -22,14 +24,21 @@ import { DemoDataLoader } from '@/components/external-crm/demo-data-loader';
 import { Dashboard } from '@/components/dashboard/dashboard';
 import { PriceSimulator } from '@/components/external-crm/price-simulator';
 import { DuplicatesManagement } from '@/components/external-crm/duplicates-management';
+import { NotificationsTab } from '@/components/external-crm/notifications-tab';
 import { DailyCallsDashboard } from '@/components/external-crm/daily-calls-dashboard';
-import { CalendarDashboard } from '@/components/external-crm/calendar-dashboard';
+import { DailyWhatsAppDashboard } from '@/components/external-crm/daily-whatsapp-dashboard';
+import { CalendarDashboardModern as CalendarDashboard } from '@/components/external-crm/calendar-dashboard-modern';
 import { TasksList } from '@/components/tasks/tasks-list';
 import { LeadGenerationForm } from '@/components/external-crm/lead-generation-form';
+import { CallCenterDetailModal } from '@/components/external-crm/call-center-detail-modal';
+import GroupsPostingPage from '@/app/groups-posting/page';
+
 import { CallCenter, Suggestion } from '@/lib/types/external-crm';
+import { FacebookAccount } from '@/lib/types';
 import { useAuth } from '@/lib/auth-context';
 import { TaskService } from '@/lib/services/task-service';
-import { useRouter } from 'next/navigation';
+import { TaskNotificationService } from '@/lib/services/task-notification-service';
+import { useNotifications } from '@/lib/notification-context';
 
 interface CalendarEvent {
   id: string;
@@ -47,6 +56,7 @@ interface CalendarEvent {
   status?: 'completed' | 'pending';
   completedAt?: string;
   firebaseTaskId?: string;
+  summary?: string;
 }
 
 interface DailyTask {
@@ -56,22 +66,66 @@ interface DailyTask {
   completed: boolean;
   createdAt: Date;
   completedAt?: Date;
-  source?: 'firebase' | 'calendar';
+  source?: 'firebase' | 'calendar' | 'groups';
   calendarEvent?: CalendarEvent; // Calendar event reference
   groupId?: string; // Call center ID for Firebase tasks
   accountId?: string; // Call center ID for Firebase tasks
 }
 
 export default function ExternalCRMPage() {
-  const { user, logout, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [activeLeadFinderTab, setActiveLeadFinderTab] = useState<'google' | 'linkedin'>('google');
+   const { user, logout, loading: authLoading } = useAuth();
+   const router = useRouter();
+   const { notifications } = useNotifications();
+   const [activeTab, setActiveTab] = useState('dashboard');
   const [callCenters, setCallCenters] = useState<CallCenter[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Group edit modal state - moved to parent level
+  const [showGroupEditModal, setShowGroupEditModal] = useState(false);
+  const [editingGroupData, setEditingGroupData] = useState<any>(null);
+  const [facebookAccounts, setFacebookAccounts] = useState<FacebookAccount[]>([]);
+
   const [showForm, setShowForm] = useState(false);
   const [editingCallCenter, setEditingCallCenter] = useState<CallCenter | undefined>();
+  const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  // Cleanup notifications on unmount
+  useEffect(() => {
+    return () => {
+      TaskNotificationService.cleanup();
+    };
+  }, []);
+
+  // Check notification permission status
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>('default');
+
+  useEffect(() => {
+    console.log('🔔 Setting up notification permission callback');
+    // Set up callback for permission updates
+    TaskNotificationService.setPermissionCallback((permission) => {
+      console.log('🔔 Permission callback called with:', permission);
+      setNotificationPermission(permission);
+    });
+
+    // Get initial permission status
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      const initialPermission = Notification.permission;
+      console.log('🔔 Initial permission from browser:', initialPermission);
+      setNotificationPermission(initialPermission);
+    } else {
+      console.log('🔔 Notifications not supported');
+    }
+  }, []);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -90,10 +144,144 @@ export default function ExternalCRMPage() {
   const [newTaskLocation, setNewTaskLocation] = useState('');
   const [newTaskType, setNewTaskType] = useState<CalendarEvent['type']>('task');
   const [newTaskCallCenter, setNewTaskCallCenter] = useState('');
+  const [newTaskSummary, setNewTaskSummary] = useState('');
 
   // Calendar refresh state
   const [calendarRefreshTrigger, setCalendarRefreshTrigger] = useState(0);
 
+  // Task detail modal state
+  const [showTaskCallCenterDetail, setShowTaskCallCenterDetail] = useState(false);
+  const [selectedTaskCallCenter, setSelectedTaskCallCenter] = useState<CallCenter | null>(null);
+
+  // Function to find call center by name or ID for tasks
+  const findCallCenterByName = (nameOrId: string): CallCenter | null => {
+    if (!nameOrId || !nameOrId.trim()) return null;
+
+    // First try exact match by name
+    let callCenter = callCenters.find(cc => cc.name === nameOrId.trim());
+    if (callCenter) return callCenter;
+
+    // Try exact match by ID
+    callCenter = callCenters.find(cc => cc.id === nameOrId.trim());
+    if (callCenter) return callCenter;
+
+    // Try case-insensitive match by name
+    callCenter = callCenters.find(cc => cc.name.toLowerCase() === nameOrId.trim().toLowerCase());
+    if (callCenter) return callCenter;
+
+    // Try partial match by name (contains)
+    callCenter = callCenters.find(cc => cc.name.toLowerCase().includes(nameOrId.trim().toLowerCase()));
+    if (callCenter) return callCenter;
+
+    // Try partial match the other way
+    callCenter = callCenters.find(cc => nameOrId.trim().toLowerCase().includes(cc.name.toLowerCase()));
+    if (callCenter) return callCenter;
+
+    console.log('❌ Could not find call center for name/ID:', nameOrId, 'Available names:', callCenters.map(cc => cc.name), 'Available IDs:', callCenters.map(cc => cc.id));
+    return null;
+  };
+
+  // Function to handle clicking on call center name in tasks
+  const handleTaskCallCenterClick = async (callCenterNameOrId: string, callCenterId?: string) => {
+    console.log('🔍 [TASK-CLICK] Clicked on call center name/ID:', callCenterNameOrId, 'ID:', callCenterId);
+
+    let callCenter = null;
+
+    // First try to fetch by ID if provided
+    if (callCenterId) {
+      try {
+        console.log('🔍 [TASK-CLICK] Trying to fetch by ID:', callCenterId);
+        const response = await fetch(`/api/external-crm/${callCenterId}`);
+        if (response.ok) {
+          const data = await response.json();
+          callCenter = data.data;
+          console.log('✅ [TASK-CLICK] Found call center by ID:', callCenter?.name);
+        } else {
+          console.log('❌ [TASK-CLICK] Failed to fetch by ID, status:', response.status);
+        }
+      } catch (error) {
+        console.error('❌ [TASK-CLICK] Error fetching by ID:', error);
+      }
+    }
+
+    // If not found by ID, try searching via API (not limited to loaded call centers)
+    if (!callCenter) {
+      try {
+        console.log('🔍 [TASK-CLICK] Searching via API for:', callCenterNameOrId);
+        const response = await fetch(`/api/external-crm/search?q=${encodeURIComponent(callCenterNameOrId)}&limit=10`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data && data.data.results && data.data.results.length > 0) {
+            const results = data.data.results;
+            // Find exact match first
+            callCenter = results.find((cc: any) => cc.name === callCenterNameOrId);
+            if (!callCenter) {
+              // Then try case-insensitive match
+              callCenter = results.find((cc: any) => cc.name.toLowerCase() === callCenterNameOrId.toLowerCase());
+            }
+            if (!callCenter && results.length === 1) {
+              // If only one result, use it
+              callCenter = results[0];
+            }
+            console.log('✅ [TASK-CLICK] Found call center via API:', callCenter?.name);
+          }
+        }
+      } catch (error) {
+        console.error('❌ [TASK-CLICK] Error searching via API:', error);
+      }
+    }
+
+    // Last resort: search in loaded call centers
+    if (!callCenter) {
+      console.log('🔍 [TASK-CLICK] Searching by name in loaded call centers:', callCenterNameOrId);
+      callCenter = findCallCenterByName(callCenterNameOrId);
+    }
+
+    console.log('🔍 [TASK-CLICK] Final call center result:', callCenter);
+    if (callCenter) {
+      setSelectedTaskCallCenter(callCenter);
+      setShowTaskCallCenterDetail(true);
+      console.log('✅ [TASK-CLICK] Modal should open for call center:', callCenter.name);
+    } else {
+      console.log('❌ [TASK-CLICK] No call center found for name/ID:', callCenterNameOrId);
+      alert(`Call center "${callCenterNameOrId}" not found in database`);
+    }
+  };
+
+
+  // Prevent multiple initializations
+  const [initialized, setInitialized] = useState(false);
+
+
+  // Load Facebook accounts
+  const loadFacebookAccounts = async () => {
+    try {
+      const isDevelopment = process.env.NODE_ENV === 'development';
+      const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+
+      if (!user?.uid && !(isDevelopment && bypassAuth)) {
+        return;
+      }
+
+      const { collection, getDocs, query, orderBy } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+
+      const q = query(collection(db, 'accountsVOIP'), orderBy('createdAt', 'desc'));
+      const snapshot = await getDocs(q);
+      const accountsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as FacebookAccount[];
+
+      setFacebookAccounts(accountsData);
+      console.log('✅ Loaded Facebook accounts:', accountsData.length);
+      console.log('📋 Facebook accounts data:', accountsData.map(acc => ({ id: acc.id, name: acc.name, accountId: acc.accountId, status: acc.status })));
+    } catch (error) {
+      console.error('❌ Error loading Facebook accounts:', error);
+    }
+  };
+
+  // Main initialization effect - simplified to prevent infinite loops
   useEffect(() => {
     console.log('🚀 Initializing External CRM Page...');
     console.log('👤 Current user:', user);
@@ -105,45 +293,60 @@ export default function ExternalCRMPage() {
       return;
     }
 
-    if (!user?.uid) {
+    // Check if we're bypassing authentication
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+
+    if (!user?.uid && !(isDevelopment && bypassAuth)) {
       console.log('❌ No authenticated user, redirecting to login');
       router.push('/');
       return;
     }
 
-    console.log('✅ User authenticated, loading data...');
+    console.log('✅ User authenticated or auth bypassed, loading data...');
 
-    // Load suggestions and daily tasks, but call centers are loaded separately
-    loadSuggestions();
-    loadDailyTasks();
-    // Load call centers immediately when user is authenticated
-    loadCallCenters(true);
-  }, [user?.uid, router, authLoading]);
+    // Set loading to false since we have a user or we're bypassing auth
+    setLoading(false);
 
-  // Separate effect to handle data loading after authentication is confirmed
-  useEffect(() => {
-    if (user?.uid && !authLoading) {
-      console.log('🔄 User authenticated, ensuring data is loaded...');
-      // Force reload if needed
-      if (callCenters.length === 0) {
-        loadCallCenters(true);
-      }
-      if (suggestions.length === 0) {
-        loadSuggestions();
-      }
-    }
-  }, [user?.uid, authLoading]); // Removed callCenters.length and suggestions.length to prevent infinite loops
+    // Only load data if we haven't initialized yet
+    if (!initialized) {
+      console.log('🔄 First time initialization, loading all data...');
+      setInitialized(true);
 
-  // Removed this effect as it's causing infinite loops - data loading is handled in the main auth effect
-
-  // Force load call centers when user is authenticated and we have no data
-  useEffect(() => {
-    if (user?.uid && !authLoading && callCenters.length === 0 && !loading) {
-      console.log('🔄 No call centers loaded, forcing reload...');
-      // Force immediate load without timeout
+      // Load call centers and Facebook accounts initially
       loadCallCenters(true);
+      loadFacebookAccounts();
     }
-  }, [user?.uid, authLoading]); // Removed callCenters.length and loading from dependencies to prevent infinite loop
+  }, [user?.uid, router, authLoading, initialized]);
+
+  // Reload daily tasks when switching to tasks tab
+  useEffect(() => {
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+
+    if (activeTab === 'tasks' && (user?.uid || (isDevelopment && bypassAuth))) {
+      console.log('🔄 Tasks tab activated, reloading daily tasks...');
+      loadDailyTasks();
+    }
+  }, [activeTab]);
+
+  // Initialize notification service separately (non-blocking)
+  useEffect(() => {
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+
+    console.log('🔔 useEffect for notification service initialization triggered, user:', !!user?.uid, 'bypass:', bypassAuth);
+
+    if (user?.uid || (isDevelopment && bypassAuth)) {
+      console.log('🔔 Initializing notification service...');
+      // Initialize notification service asynchronously without blocking task loading
+      TaskNotificationService.initialize().catch(error => {
+        console.error('❌ Failed to initialize notification service:', error);
+      });
+    } else {
+      console.log('🔔 Skipping notification service initialization - no user');
+    }
+  }, [user?.uid]);
 
   const handleLogout = async () => {
     try {
@@ -156,81 +359,89 @@ export default function ExternalCRMPage() {
 
   // Daily tasks functions
   const loadDailyTasks = async () => {
-    if (!user?.uid) return;
+    console.log('🔄 loadDailyTasks called');
+
+    // Check if we're bypassing authentication (like other functions in this component)
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+
+    if (!user?.uid && !(isDevelopment && bypassAuth)) {
+      console.log('🔄 User not authenticated and not bypassing auth, skipping daily tasks load');
+      return;
+    }
 
     try {
-      console.log('🔄 Loading daily tasks from Firebase for user:', user.uid);
+      console.log('🔄 Loading daily tasks from /api/external-crm/today for user:', user?.uid || 'bypassed');
 
-      // Load Firebase tasks
-      const todayTasks = await TaskService.getTodayTasks();
-      console.log('📋 Today tasks from Firebase:', todayTasks.length, todayTasks);
+      // Use the dedicated /api/external-crm/today endpoint that properly combines
+      // both Firebase tasks and calendar events for today
+      const response = await fetch('/api/external-crm/today');
+      
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+      }
 
-      // Load calendar events for today
-      const todayCalendarEvents = await getTodayCalendarEvents();
-      console.log('📅 Today calendar events:', todayCalendarEvents.length, todayCalendarEvents);
-
-      // Convert Firebase tasks to DailyTask format
-      const convertedTasks = todayTasks.map(task => {
-        let title = 'Task';
-        let description = '';
-
-        try {
-          // Try to parse notes as JSON (new format)
-          if (task.notes) {
-            const parsedNotes = JSON.parse(task.notes);
-            if (parsedNotes && typeof parsedNotes === 'object') {
-              title = parsedNotes.title || parsedNotes.description || 'Task';
-              description = parsedNotes.description || '';
-            } else {
-              // Fallback for old format (just string)
-              title = task.notes;
-              description = task.notes;
-            }
-          }
-        } catch (error) {
-          // Fallback if JSON parsing fails
-          title = task.notes || 'Task';
-          description = task.notes || '';
-        }
-
+      const data = await response.json();
+      console.log('📊 Today API response:', data);
+      
+      // Convert the unified format from the API to DailyTask format
+      const allTasks = data.items.map((item: any) => {
+        console.log('🔔 Processing task item:', { id: item.id, title: item.title, time: item.time, date: item.date, source: item.source, completed: item.completed });
         return {
-          id: task.id!,
-          title,
-          description,
-          completed: task.status === 'completed',
-          createdAt: task.createdAt || new Date(),
-          completedAt: task.doneAt,
-          source: 'firebase' as const,
-          groupId: task.groupId,
-          accountId: task.accountId,
+          id: item.id,
+          title: item.title,
+          description: item.description || '',
+          completed: item.completed,
+          createdAt: new Date(item.date + (item.time ? 'T' + item.time : 'T00:00:00')),
+          completedAt: item.completedAt ? new Date(item.completedAt) : undefined,
+          source: item.source as 'firebase' | 'calendar' | 'groups',
+          calendarEvent: item.source === 'calendar' ? {
+            id: item.id.replace('calendar-', ''),
+            title: item.title,
+            description: item.description,
+            date: item.date,
+            time: item.time,
+            location: item.location,
+            type: item.type,
+            callCenterId: item.callCenterId,
+            callCenterName: item.callCenterName,
+            status: item.completed ? 'completed' : 'pending',
+            completedAt: item.completedAt,
+            summary: item.summary || '',
+          } : undefined,
+          groupId: item.groupId,
+          accountId: item.accountId,
         };
       });
 
-      // Convert calendar events to DailyTask format
-      // Filter out calendar events that have firebaseTaskId (these are already represented by Firebase tasks)
-      const calendarEventsWithoutFirebaseTasks = todayCalendarEvents.filter((event: any) => !event.firebaseTaskId);
+      console.log('✅ All daily tasks (Firebase + Calendar):', allTasks.length, allTasks);
+      setDailyTasks(allTasks);
 
-      const convertedCalendarEvents = calendarEventsWithoutFirebaseTasks.map((event: any) => ({
-        id: `calendar-${event.id}`,
-        title: event.title,
-        description: event.description || '',
-        completed: event.status === 'completed', // Check if calendar event is completed
-        createdAt: new Date(event.date),
-        completedAt: event.completedAt ? new Date(event.completedAt) : undefined,
-        source: 'calendar' as const,
-        calendarEvent: {
-          ...event,
-          status: event.status || 'pending', // Ensure status is set
-          completedAt: event.completedAt || null,
-          firebaseTaskId: event.firebaseTaskId // Include the link to Firebase task
-        }, // Keep reference to original event with status
+      // Convert DailyTask format to TodayItem format for notifications
+      const notificationTasks = allTasks.map(task => ({
+        id: task.id,
+        title: task.title,
+        description: task.description || '',
+        date: task.createdAt.toISOString().split('T')[0],
+        time: task.source === 'firebase'
+          ? task.createdAt.toTimeString().split(' ')[0].substring(0, 5) // HH:MM format
+          : task.calendarEvent?.time || '',
+        completed: task.completed,
+        completedAt: task.completedAt?.toISOString(),
+        source: task.source || 'firebase',
+        type: task.calendarEvent?.type,
+        location: task.calendarEvent?.location,
+        callCenterId: task.calendarEvent?.callCenterId,
+        callCenterName: task.calendarEvent?.callCenterName,
+        groupId: task.groupId,
+        accountId: task.accountId,
+        summary: task.calendarEvent?.summary,
       }));
 
-      // Merge both types of tasks
-      const allTasks = [...convertedTasks, ...convertedCalendarEvents];
-      console.log('✅ All daily tasks (Firebase + Calendar):', allTasks.length, allTasks);
+      console.log('🔔 Converted tasks for notifications:', notificationTasks.map(t => ({ id: t.id, title: t.title, time: t.time, completed: t.completed })));
 
-      setDailyTasks(allTasks);
+      // Update notifications for today's tasks
+      TaskNotificationService.updateNotifications(notificationTasks);
     } catch (error) {
       console.error('❌ Error loading daily tasks:', error);
     }
@@ -281,7 +492,11 @@ export default function ExternalCRMPage() {
       return;
     }
 
-    if (!user?.uid) {
+    // Check for user authentication, but allow development bypass
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+    
+    if (!user?.uid && !(isDevelopment && bypassAuth)) {
       console.log('❌ Validation failed: no user');
       return;
     }
@@ -300,10 +515,23 @@ export default function ExternalCRMPage() {
   };
 
   const addDailyTask = async () => {
-    if (!newTaskTitle.trim() || !user?.uid || !newTaskDate) return;
+    // Check for user authentication, but allow development bypass
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+    
+    if (!newTaskTitle.trim() || !newTaskDate) {
+      console.log('❌ Validation failed: missing title or date');
+      return;
+    }
+    
+    if (!user?.uid && !(isDevelopment && bypassAuth)) {
+      console.log('❌ Validation failed: no user and not bypassing auth');
+      return;
+    }
 
     try {
       console.log('🔄 Creating daily task in Firebase...');
+      console.log('📝 User ID:', user?.uid || 'bypassed');
       // Create task in Firebase - store title and description separately in notes as JSON
       const taskNotes = {
         title: newTaskTitle.trim(),
@@ -317,7 +545,7 @@ export default function ExternalCRMPage() {
 
       const taskData = {
         date: taskDateTime,
-        assignedTo: user.uid,
+        assignedTo: user?.uid || 'bypassed-user', // Use user ID or fallback for bypassed auth
         groupId: newTaskCallCenter || 'daily-task', // Use selected call center or placeholder
         accountId: newTaskCallCenter || 'daily-task', // Use selected call center or placeholder
         templateId: 'daily-task', // Use a placeholder for daily tasks
@@ -341,6 +569,7 @@ export default function ExternalCRMPage() {
             callCenterId: newTaskCallCenter || '',
             status: 'pending',
             firebaseTaskId: taskId, // Link calendar event to Firebase task
+            summary: newTaskSummary.trim() || '',
           };
 
           const response = await fetch('/api/external-crm/calendar', {
@@ -440,10 +669,19 @@ export default function ExternalCRMPage() {
         await updateCalendarEventStatus(task.calendarEvent.id, newStatus);
         // Trigger calendar refresh
         setCalendarRefreshTrigger(prev => prev + 1);
+      } else if (task.source === 'groups') {
+        // Update group posting task status (only for completion, not uncompletion)
+        if (newStatus === 'completed') {
+          const { GroupsPostingGeneratorService } = await import('@/lib/services/groups-posting-generator-service');
+          await GroupsPostingGeneratorService.updateTaskStatus(taskId.replace('group-', ''), 'completed');
+        }
+        // Note: Group tasks don't support uncompletion back to pending once started
       }
 
       // Reload tasks in background to ensure consistency
-      setTimeout(() => loadDailyTasks(), 100);
+      setTimeout(() => {
+        loadDailyTasks();
+      }, 100);
     } catch (error) {
       console.error('❌ Error toggling task completion:', error);
       // Revert optimistic update on error
@@ -494,7 +732,8 @@ export default function ExternalCRMPage() {
         type: currentEvent.type,
         status: status,
         completedAt: status === 'completed' ? new Date().toISOString() : null,
-        callCenterId: currentEvent.callCenterId || ''
+        callCenterId: currentEvent.callCenterId || '',
+        summary: currentEvent.summary || ''
       };
 
       console.log('📤 Update payload:', updatePayload);
@@ -605,6 +844,7 @@ export default function ExternalCRMPage() {
       setNewTaskLocation(task.calendarEvent.location || '');
       setNewTaskType(task.calendarEvent.type);
       setNewTaskCallCenter(task.calendarEvent.callCenterId || '');
+      setNewTaskSummary(task.calendarEvent.summary || '');
     }
     setShowAddTask(true); // Reuse the same dialog
   };
@@ -652,6 +892,7 @@ export default function ExternalCRMPage() {
               callCenterId: newTaskCallCenter || '',
               status: 'pending',
               firebaseTaskId: editingTask.id, // Link calendar event to Firebase task
+              summary: newTaskSummary.trim() || '',
             };
 
             let response;
@@ -696,7 +937,8 @@ export default function ExternalCRMPage() {
             time: newTaskTime,
             location: editingTask.calendarEvent.location,
             type: editingTask.calendarEvent.type,
-            callCenterId: newTaskCallCenter
+            callCenterId: newTaskCallCenter,
+            summary: newTaskSummary.trim() || ''
           }),
         });
 
@@ -718,6 +960,7 @@ export default function ExternalCRMPage() {
       setNewTaskLocation('');
       setNewTaskType('task');
       setNewTaskCallCenter('');
+      setNewTaskSummary('');
       setEditingTask(null);
       setShowAddTask(false);
     } catch (error) {
@@ -725,9 +968,8 @@ export default function ExternalCRMPage() {
     }
   };
 
-  const completedTasks = dailyTasks.filter(task => task.completed).length;
-  const totalTasks = dailyTasks.length;
-  const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+
 
   const loadCallCenters = async (reset: boolean = false, page: number = 1, searchTerm?: string) => {
     try {
@@ -899,28 +1141,35 @@ export default function ExternalCRMPage() {
   };
 
   const handleUpdateCallCenter = async (data: Omit<CallCenter, 'id' | 'createdAt'>) => {
-    if (!editingCallCenter) return;
+   if (!editingCallCenter) return;
 
-    try {
-      const response = await fetch(`/api/external-crm/${editingCallCenter.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
+   console.log('🔍 [PAGE] handleUpdateCallCenter called for ID:', editingCallCenter.id);
+   console.log('🔍 [PAGE] Data being sent:', data);
+   console.log('🔍 [PAGE] Destinations in data:', data.destinations);
 
-      if (response.ok) {
-        // Update the call center in the list
-        setCallCenters(prev => prev.map(cc =>
-          cc.id === editingCallCenter.id
-            ? { ...cc, ...data }
-            : cc
-        ));
-        setEditingCallCenter(undefined);
-      }
-    } catch (error) {
-      console.error('Error updating call center:', error);
-    }
-  };
+   try {
+     const response = await fetch(`/api/external-crm/${editingCallCenter.id}`, {
+       method: 'PUT',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify(data),
+     });
+
+     if (response.ok) {
+       console.log('✅ [PAGE] Update API call successful');
+       // Update the call center in the list
+       setCallCenters(prev => prev.map(cc =>
+         cc.id === editingCallCenter.id
+           ? { ...cc, ...data }
+           : cc
+       ));
+       setEditingCallCenter(undefined);
+     } else {
+       console.error('❌ [PAGE] Update API call failed with status:', response.status);
+     }
+   } catch (error) {
+     console.error('❌ [PAGE] Error updating call center:', error);
+   }
+ };
 
   const handleDeleteCallCenter = async (id: string) => {
     if (!confirm('Are you sure you want to delete this call center?')) return;
@@ -1049,6 +1298,7 @@ export default function ExternalCRMPage() {
       alert('Failed to import call centers');
     }
   };
+
 
   const handleExport = async (format: 'csv' | 'json' | 'pdf') => {
     // Fetch all call centers from database
@@ -1258,31 +1508,25 @@ const handleEdit = (callCenter: CallCenter) => {
                 onLoadMore={loadMoreCallCenters}
                 totalCount={totalCount}
                 onViewDuplicates={() => setActiveTab('duplicates')}
-                onSearch={async (searchTerm) => {
-                  console.log('🔍 Search triggered:', searchTerm);
-                  try {
-                    if (searchTerm.trim()) {
-                      // When searching, load all records
-                      await loadCallCenters(true, 1, searchTerm);
-                    } else {
-                      // When search is cleared, load first page normally
-                      await loadCallCenters(true, 1);
-                    }
-                  } catch (error) {
-                    console.error('❌ Search error:', error);
-                  }
-                }}
-                onSearchComplete={() => {
-                  console.log('✅ Search completed');
-                }}
               />
             </div>
           </div>
         );
 
+      case 'prospection':
+        return (
+          <iframe
+            src="/prospection"
+            className="w-full h-[800px] border-0 rounded-lg"
+            title="Prospection"
+          />
+        );
+
       case 'daily-calls':
         return <DailyCallsDashboard />;
 
+      case 'daily-whatsapp':
+        return <DailyWhatsAppDashboard />;
 
       case 'integrity':
         return <DataIntegrityDashboard callCenters={callCenters} loading={loading} />;
@@ -1291,7 +1535,7 @@ const handleEdit = (callCenter: CallCenter) => {
         return <FinancialAnalyticsDashboard callCenters={callCenters} loading={loading} />;
 
       case 'calendar':
-        return <CalendarDashboard refreshTrigger={calendarRefreshTrigger} />;
+        return <CalendarDashboard refreshTrigger={calendarRefreshTrigger} onCallCenterClick={handleTaskCallCenterClick} />;
 
       case 'tasks':
         return (
@@ -1302,6 +1546,51 @@ const handleEdit = (callCenter: CallCenter) => {
                 <div>
                   <h2 className="text-2xl font-bold text-gray-900">Today's Tasks</h2>
                   <p className="text-gray-600">Manage your daily tasks and track progress</p>
+                  {/* Notification permission status */}
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Notifications:</span>
+                    <Badge variant={notificationPermission === 'granted' ? 'default' : notificationPermission === 'denied' ? 'destructive' : 'secondary'} className="text-xs">
+                      {notificationPermission === 'granted' ? 'Enabled' : notificationPermission === 'denied' ? 'Blocked' : 'Not requested'}
+                    </Badge>
+                    {notificationPermission !== 'granted' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          console.log('🔔 Enable Notifications button clicked');
+                          try {
+                            const permission = await TaskNotificationService.requestPermission();
+                            console.log('🔔 Permission result:', permission);
+                            if (permission === 'granted') {
+                              console.log('🔔 Permission granted, reloading tasks...');
+                              // Reload tasks to schedule notifications
+                              loadDailyTasks();
+                            } else {
+                              console.log('🔔 Permission not granted:', permission);
+                            }
+                          } catch (error) {
+                            console.error('🔔 Error requesting permission:', error);
+                          }
+                        }}
+                        className="text-xs"
+                      >
+                        Enable Notifications
+                      </Button>
+                    )}
+                    {notificationPermission === 'granted' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          console.log('🔔 Test Notification button clicked');
+                          TaskNotificationService.testNotification();
+                        }}
+                        className="text-xs ml-2"
+                      >
+                        Test Notification
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <Dialog open={showAddTask} onOpenChange={(open) => {
                   console.log('🔄 Dialog onOpenChange:', { open, currentShowAddTask: showAddTask });
@@ -1316,6 +1605,7 @@ const handleEdit = (callCenter: CallCenter) => {
                     setNewTaskLocation('');
                     setNewTaskType('task');
                     setNewTaskCallCenter('');
+                    setNewTaskSummary('');
                   }
                 }}>
                   <DialogTrigger asChild>
@@ -1429,6 +1719,18 @@ const handleEdit = (callCenter: CallCenter) => {
                           placeholder="Enter call center name or ID"
                         />
                       </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-2">Summary</label>
+                        <Textarea
+                          value={newTaskSummary}
+                          onChange={(e) => {
+                            console.log('📝 Summary changed:', e.target.value);
+                            setNewTaskSummary(e.target.value);
+                          }}
+                          placeholder="Enter summary of processes with this call center..."
+                          rows={3}
+                        />
+                      </div>
                       <div className="flex justify-end gap-2">
                         <Button variant="outline" onClick={() => {
                           console.log('🔄 Cancel button clicked');
@@ -1441,6 +1743,7 @@ const handleEdit = (callCenter: CallCenter) => {
                           setNewTaskLocation('');
                           setNewTaskType('task');
                           setNewTaskCallCenter('');
+                          setNewTaskSummary('');
                         }}>
                           Cancel
                         </Button>
@@ -1470,12 +1773,12 @@ const handleEdit = (callCenter: CallCenter) => {
                 <div className="space-y-3">
                   <div className="flex items-center gap-4 mb-4">
                     <div className="text-sm text-gray-600">
-                      {completedTasks} of {totalTasks} tasks completed ({completionRate}% done)
+                      {dailyTasks.filter(task => task.completed).length} of {dailyTasks.length} tasks completed ({dailyTasks.length > 0 ? Math.round((dailyTasks.filter(task => task.completed).length / dailyTasks.length) * 100) : 0}% done)
                     </div>
                     <div className="flex-1 bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${completionRate}%` }}
+                        style={{ width: `${dailyTasks.length > 0 ? Math.round((dailyTasks.filter(task => task.completed).length / dailyTasks.length) * 100) : 0}%` }}
                       ></div>
                     </div>
                   </div>
@@ -1485,7 +1788,7 @@ const handleEdit = (callCenter: CallCenter) => {
                       key={task.id}
                       className={`flex items-start gap-3 p-4 border rounded-lg transition-colors ${
                         task.completed ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
-                      } ${task.source === 'calendar' ? 'border-l-4 border-l-blue-500 bg-blue-50/30' : ''}`}
+                      } ${task.source === 'calendar' ? 'border-l-4 border-l-blue-500 bg-blue-50/30' : task.source === 'groups' ? 'border-l-4 border-l-purple-500 bg-purple-50/30' : ''}`}
                     >
                       <button
                           onClick={() => toggleTaskCompletion(task.id)}
@@ -1505,6 +1808,11 @@ const handleEdit = (callCenter: CallCenter) => {
                           {task.source === 'calendar' && (
                             <Badge variant="secondary" className="text-xs">
                               📅 Calendar
+                            </Badge>
+                          )}
+                          {task.source === 'groups' && (
+                            <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                              👥 Group Posting
                             </Badge>
                           )}
                         </div>
@@ -1534,12 +1842,35 @@ const handleEdit = (callCenter: CallCenter) => {
                         {/* Show call center information */}
                         {(task.source === 'firebase' && (task.groupId !== 'daily-task' || task.accountId !== 'daily-task')) && (
                           <div className="text-xs text-orange-600 mt-1">
-                            🏢 {task.groupId || task.accountId}
+                            🏢 <button
+                              onClick={() => {
+                                const nameOrId = task.groupId || task.accountId || '';
+                                const isId = nameOrId && nameOrId !== 'daily-task' && nameOrId.length > 10; // Firebase IDs are long
+                                handleTaskCallCenterClick(nameOrId, isId ? nameOrId : undefined);
+                              }}
+                              className="hover:underline hover:text-orange-800 transition-colors"
+                            >
+                              {task.groupId || task.accountId}
+                            </button>
                           </div>
                         )}
                         {task.calendarEvent?.callCenterName && (
                           <div className="text-xs text-orange-600 mt-1">
-                            🏢 {task.calendarEvent.callCenterName}
+                            🏢 <button
+                              onClick={() => {
+                                if (task.calendarEvent) {
+                                  handleTaskCallCenterClick(task.calendarEvent.callCenterName!, task.calendarEvent.callCenterId);
+                                }
+                              }}
+                              className="hover:underline hover:text-orange-800 transition-colors"
+                            >
+                              {task.calendarEvent.callCenterName}
+                            </button>
+                          </div>
+                        )}
+                        {task.calendarEvent?.summary && (
+                          <div className="text-xs text-purple-600 mt-1 bg-purple-50 p-2 rounded border-l-2 border-purple-200">
+                            📝 <strong>Summary:</strong> {task.calendarEvent.summary}
                           </div>
                         )}
                         <div className="flex items-center gap-2 mt-2">
@@ -1579,11 +1910,6 @@ const handleEdit = (callCenter: CallCenter) => {
               )}
             </div>
 
-            {/* Scheduled Posting Tasks Section */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-xl font-semibold mb-4">Scheduled Posting Tasks</h3>
-              <TasksList />
-            </div>
           </div>
         );
 
@@ -1598,6 +1924,9 @@ const handleEdit = (callCenter: CallCenter) => {
             }}
           />
         );
+
+      case 'notifications':
+        return <NotificationsTab />;
 
       case 'suggestions':
         return (
@@ -1616,67 +1945,31 @@ const handleEdit = (callCenter: CallCenter) => {
           </div>
         );
 
-      case 'lead-finder':
+
+
+      case 'posting-posting':
         return (
-          <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Lead Finder</h2>
-                  <p className="text-gray-600">Search for potential leads from Google Business and LinkedIn profiles</p>
-                </div>
-              </div>
-
-              {/* Tabs for Google and LinkedIn Finder */}
-              <div className="mt-6">
-                <div className="border-b border-gray-200 mb-6">
-                  <nav className="flex space-x-8">
-                    <button
-                      onClick={() => setActiveLeadFinderTab('google')}
-                      className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeLeadFinderTab === 'google'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      Google Business
-                    </button>
-                    <button
-                      onClick={() => setActiveLeadFinderTab('linkedin')}
-                      className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                        activeLeadFinderTab === 'linkedin'
-                          ? 'border-blue-500 text-blue-600'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
-                    >
-                      LinkedIn Profiles
-                    </button>
-                  </nav>
-                </div>
-
-                {/* Content based on active tab */}
-                <div className="mt-6">
-                  {activeLeadFinderTab === 'google' ? (
-                    <iframe
-                      src="/leads/google"
-                      className="w-full h-[800px] border-0 rounded-lg"
-                      title="Google Lead Finder"
-                    />
-                  ) : (
-                    <iframe
-                      src="/leads/linkedin"
-                      className="w-full h-[800px] border-0 rounded-lg"
-                      title="LinkedIn Lead Finder"
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          <iframe
+            src="/posting"
+            className="w-full h-[800px] border-0 rounded-lg"
+            title="Posting Posting"
+          />
         );
 
-      case 'posting-crm':
-        return <Dashboard />;
+      case 'groups-posting':
+        return <GroupsPostingPage onEditGroup={(groupData) => {
+          setEditingGroupData(groupData);
+          setShowGroupEditModal(true);
+        }} />;
+
+      case 'reports':
+        return (
+          <iframe
+            src="/reports"
+            className="w-full h-[800px] border-0 rounded-lg"
+            title="Reports"
+          />
+        );
 
       default:
         return <CallCentersDashboard callCenters={callCenters} loading={loading} />;
@@ -1690,15 +1983,19 @@ const handleEdit = (callCenter: CallCenter) => {
   console.log('📋 Call centers count:', callCenters.length);
   console.log('📝 Suggestions count:', suggestions.length);
 
-  // Show loading indicator if still loading OR if user is not authenticated
-  if (loading || !user?.uid) {
-    console.log('⏳ Showing loading indicator (loading:', loading, 'user:', !!user?.uid, ')');
+  // Show loading indicator if still loading OR if user is not authenticated (unless bypassing auth)
+  const isDevelopment = process.env.NODE_ENV === 'development';
+  const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+  const shouldBypassAuth = isDevelopment && bypassAuth;
+
+  if (loading || (!user?.uid && !shouldBypassAuth)) {
+    console.log('⏳ Showing loading indicator (loading:', loading, 'user:', !!user?.uid, 'bypass:', shouldBypassAuth, ')');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">
-            {!user?.uid ? 'Authenticating...' : 'Loading CRM...'}
+            {!user?.uid && !shouldBypassAuth ? 'Authenticating...' : 'Loading CRM...'}
           </p>
         </div>
       </div>
@@ -1709,9 +2006,205 @@ const handleEdit = (callCenter: CallCenter) => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Group Edit Modal */}
+      {showGroupEditModal && editingGroupData && (
+        <div
+          className="fixed inset-0 z-[99999] flex items-center justify-center bg-black bg-opacity-50"
+          style={{ zIndex: 99999 }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowGroupEditModal(false);
+              setEditingGroupData(null);
+            }
+          }}
+        >
+          {(() => { console.log('Modal rendering with Facebook accounts:', facebookAccounts.length, facebookAccounts); return null; })()}
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto mx-4">
+            <div className="flex items-center space-x-2 mb-6">
+              <div className="w-5 h-5 bg-green-600 rounded"></div>
+              <h2 className="text-lg font-semibold">Edit Facebook Group</h2>
+            </div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Group Name *</label>
+                  <input
+                    type="text"
+                    value={editingGroupData.name || ''}
+                    onChange={(e) => setEditingGroupData({...editingGroupData, name: e.target.value})}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Group URL *</label>
+                  <input
+                    type="url"
+                    value={editingGroupData.url || ''}
+                    onChange={(e) => setEditingGroupData({...editingGroupData, url: e.target.value})}
+                    className="w-full p-2 border rounded"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Member Count</label>
+                  <input
+                    type="number"
+                    value={editingGroupData.memberCount || ''}
+                    onChange={(e) => setEditingGroupData({...editingGroupData, memberCount: parseInt(e.target.value) || 0})}
+                    className="w-full p-2 border rounded"
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Language</label>
+                  <select
+                    value={editingGroupData.language || 'en'}
+                    onChange={(e) => setEditingGroupData({...editingGroupData, language: e.target.value})}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="en">English</option>
+                    <option value="fr">French</option>
+                    <option value="ar">Arabic</option>
+                    <option value="es">Spanish</option>
+                    <option value="de">German</option>
+                    <option value="it">Italian</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="ru">Russian</option>
+                    <option value="zh">Chinese</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Linked Facebook Account</label>
+                  <select
+                    value={editingGroupData.accountId || ''}
+                    onChange={(e) => setEditingGroupData({...editingGroupData, accountId: e.target.value || undefined})}
+                    className="w-full p-2 border rounded"
+                  >
+                    <option value="">No account linked</option>
+                    {facebookAccounts.length === 0 ? (
+                      <option disabled>No Facebook accounts available</option>
+                    ) : (
+                      facebookAccounts.map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.name || 'Unnamed'} ({account.accountId}) - {account.status} - {account.browser || 'No browser'}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Select which Facebook account this group should be linked to for posting
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2 pt-4">
+                <button
+                  onClick={() => {
+                    setShowGroupEditModal(false);
+                    setEditingGroupData(null);
+                  }}
+                  className="px-4 py-2 border rounded hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      // Update the group in Firestore
+                      const { updateDoc, doc } = await import('firebase/firestore');
+                      const { db } = await import('@/lib/firebase');
+                      await updateDoc(doc(db, 'groupsVOIP', editingGroupData.id), {
+                        name: editingGroupData.name,
+                        url: editingGroupData.url,
+                        memberCount: editingGroupData.memberCount,
+                        language: editingGroupData.language,
+                        updatedAt: new Date()
+                      });
+                      setShowGroupEditModal(false);
+                      setEditingGroupData(null);
+                      alert('Group updated successfully');
+                      // Refresh would happen via the GroupsPostingPage component
+                    } catch (error) {
+                      console.error('Error updating group:', error);
+                      alert('Failed to update group');
+                    }
+                  }}
+                  disabled={!editingGroupData.name?.trim() || !editingGroupData.url?.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Update Group
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Task Call Center Detail Modal */}
+      {console.log('🔍 [MODAL] Rendering modal - isOpen:', showTaskCallCenterDetail, 'callCenter:', selectedTaskCallCenter?.name)}
+      <CallCenterDetailModal
+        callCenter={selectedTaskCallCenter}
+        isOpen={showTaskCallCenterDetail}
+        onClose={() => {
+          console.log('🔍 [MODAL] Closing modal');
+          setShowTaskCallCenterDetail(false);
+          setSelectedTaskCallCenter(null);
+        }}
+        onCallCenterUpdate={(updatedCallCenter) => {
+          // Update the call center in the list
+          setCallCenters(prev => prev.map(cc =>
+            cc.id === updatedCallCenter.id ? updatedCallCenter : cc
+          ));
+          setShowTaskCallCenterDetail(false);
+          setSelectedTaskCallCenter(null);
+        }}
+        onSummaryUpdate={async (callCenterId: string, summary: string) => {
+          // Handle summary update separately - call API to update just the summary
+          try {
+            const response = await fetch(`/api/external-crm/call-centers/${callCenterId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                summary: summary.trim(),
+                updatedAt: new Date().toISOString()
+              })
+            });
+
+            if (response.ok) {
+              // Update local state
+              const updatedCallCenter = callCenters.find(cc => cc.id === callCenterId);
+              if (updatedCallCenter) {
+                const updated = { ...updatedCallCenter, summary: summary.trim() };
+                setCallCenters(prev => prev.map(cc => cc.id === callCenterId ? updated : cc));
+              }
+              console.log('✅ [SUMMARY] Summary updated successfully');
+            } else {
+              console.error('❌ [SUMMARY] Failed to update summary');
+              alert('Failed to save summary');
+            }
+          } catch (error) {
+            console.error('❌ [SUMMARY] Error updating summary:', error);
+            alert('Error saving summary');
+          }
+        }}
+        onDelete={(id: string) => {
+          // Remove the call center from the list
+          setCallCenters(prev => prev.filter(cc => cc.id !== id));
+          setShowTaskCallCenterDetail(false);
+          setSelectedTaskCallCenter(null);
+        }}
+      />
+
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div className="flex items-center justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center flex-shrink-0">
               <Building2 className="w-5 h-5 text-white" />
@@ -1721,10 +2214,70 @@ const handleEdit = (callCenter: CallCenter) => {
               <p className="text-sm text-gray-600 hidden sm:block">Manage your call center operations</p>
             </div>
           </div>
+
+          {/* Real-time Date and Time Display - Centered */}
+          <div className="flex-1 text-center mx-4">
+            <div className="inline-flex items-center px-6 py-3 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="text-center">
+                <div className="flex items-baseline gap-3">
+                  <div className="text-2xl sm:text-3xl font-bold text-gray-900 font-mono tracking-wider">
+                    {currentTime.toLocaleTimeString('en-US', {
+                      hour12: false,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit'
+                    })}
+                  </div>
+                  <div className="text-sm sm:text-base text-gray-600 font-medium">
+                    {currentTime.toLocaleDateString('en-US', {
+                      weekday: 'short',
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric'
+                    })}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center gap-2 sm:gap-4">
             <span className="text-sm text-gray-600 truncate max-w-[120px] sm:max-w-none">
               Welcome, {user?.displayName || user?.email}
             </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab('simulator')}
+              title="Price Simulator"
+            >
+              <Calculator className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setActiveTab('duplicates')}
+              title="Duplicates Management"
+            >
+              <Copy className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push('/notifications')}
+              className="relative"
+              title="Notifications"
+            >
+              <Bell className="w-4 h-4" />
+              {notifications.length > 0 && (
+                <Badge
+                  variant="destructive"
+                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                >
+                  {notifications.length > 9 ? '9+' : notifications.length}
+                </Badge>
+              )}
+            </Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               <span className="hidden sm:inline">Logout</span>
               <span className="sm:hidden">Exit</span>

@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CallCenter } from '@/lib/types/external-crm';
+import { CallCenter, DESTINATION_OPTIONS } from '@/lib/types/external-crm';
 
 interface CallCenterFormProps {
   callCenter?: CallCenter;
@@ -28,6 +28,14 @@ const STATUS_OPTIONS = [
 
 const CURRENCY_OPTIONS = ['MAD', 'EUR', 'USD', 'XOF'];
 
+const BUSINESS_TYPE_OPTIONS = [
+    { value: 'call-center', label: '🏢 Call Center' },
+    { value: 'voip-reseller', label: '📞 VoIP Reseller' },
+    { value: 'data-vendor', label: '📄 Data Vendor (Files)' },
+    { value: 'workspace-rental', label: '🏢 Workspace Rental' },
+    { value: 'individual', label: '👤 Individual' }
+];
+
 export function CallCenterForm({ callCenter, onSubmit, onCancel }: CallCenterFormProps) {
   const [formData, setFormData] = useState({
     name: callCenter?.name || '',
@@ -43,6 +51,8 @@ export function CallCenterForm({ callCenter, onSubmit, onCancel }: CallCenterFor
     createdAt: callCenter?.createdAt || '',
     updatedAt: callCenter?.updatedAt || '',
     lastContacted: callCenter?.lastContacted || '',
+    // New destinations field (multiple selection)
+    destinations: callCenter?.destinations || [],
     // Optional fields for backward compatibility
     competitors: callCenter?.competitors || [],
     address: callCenter?.address || '',
@@ -57,14 +67,27 @@ export function CallCenterForm({ callCenter, onSubmit, onCancel }: CallCenterFor
     archived: callCenter?.archived || false,
     completed: callCenter?.completed || false,
     type: callCenter?.type || '',
+    businessType: callCenter?.businessType || undefined,
     markets: callCenter?.markets || [],
     source: callCenter?.source || '',
     foundDate: callCenter?.foundDate || '',
-    lastUpdated: callCenter?.lastUpdated || ''
+    lastUpdated: callCenter?.lastUpdated || '',
+    // Absence management fields
+    absentDays: callCenter?.absentDays || 0,
+    absentUntil: callCenter?.absentUntil || ''
   });
+
+  const [customDestination, setCustomDestination] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🔍 [FORM] CallCenterForm handleSubmit called');
+    console.log('🔍 [FORM] Form data being submitted:', formData);
+    console.log('🔍 [FORM] Destinations in form data:', formData.destinations);
+    console.log('🔍 [FORM] Destinations type:', typeof formData.destinations);
+    console.log('🔍 [FORM] Destinations isArray:', Array.isArray(formData.destinations));
+    console.log('🔍 [FORM] Destinations length:', formData.destinations?.length);
+    console.log('🔍 [FORM] Full form data JSON:', JSON.stringify(formData, null, 2));
     onSubmit(formData);
   };
 
@@ -139,8 +162,112 @@ export function CallCenterForm({ callCenter, onSubmit, onCancel }: CallCenterFor
             </div>
           </div>
 
+          {/* Destinations */}
+          <div>
+            <Label>Destinations (Where to call) - Multiple selection</Label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 p-3 border rounded-md">
+              {DESTINATION_OPTIONS.map(destination => (
+                <div key={destination} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id={`destination-${destination}`}
+                    checked={formData.destinations.includes(destination)}
+                    onChange={(e) => {
+                      console.log('🔍 [FORM] Checkbox changed for destination:', destination, 'checked:', e.target.checked);
+                      if (e.target.checked) {
+                        const newDestinations = [...formData.destinations, destination];
+                        console.log('🔍 [FORM] Adding destination:', destination, 'new destinations:', newDestinations);
+                        setFormData(prev => ({
+                          ...prev,
+                          destinations: newDestinations
+                        }));
+                      } else {
+                        const filteredDestinations = formData.destinations.filter(d => d !== destination);
+                        console.log('🔍 [FORM] Removing destination:', destination, 'new destinations:', filteredDestinations);
+                        setFormData(prev => ({
+                          ...prev,
+                          destinations: filteredDestinations
+                        }));
+                      }
+                    }}
+                    className="rounded border-gray-300"
+                  />
+                  <label htmlFor={`destination-${destination}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    {destination}
+                  </label>
+                </div>
+              ))}
+            </div>
+            
+            {/* Custom destination input */}
+            <div className="mt-3">
+              <Label htmlFor="custom-destination">Add Custom Destination</Label>
+              <div className="flex space-x-2">
+                <Input
+                  id="custom-destination"
+                  value={customDestination}
+                  onChange={(e) => setCustomDestination(e.target.value)}
+                  placeholder="Enter custom destination"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const trimmedDestination = customDestination.trim();
+                    console.log('🔍 [FORM] Add custom destination clicked:', trimmedDestination);
+                    console.log('🔍 [FORM] Current destinations:', formData.destinations);
+                    console.log('🔍 [FORM] Already exists:', formData.destinations.includes(trimmedDestination));
+                    
+                    if (trimmedDestination && !formData.destinations.includes(trimmedDestination)) {
+                      const newDestinations = [...formData.destinations, trimmedDestination];
+                      console.log('🔍 [FORM] Adding custom destination:', trimmedDestination, 'new destinations:', newDestinations);
+                      setFormData(prev => ({
+                        ...prev,
+                        destinations: newDestinations
+                      }));
+                      setCustomDestination('');
+                    } else if (formData.destinations.includes(trimmedDestination)) {
+                      console.log('🔍 [FORM] Custom destination already exists:', trimmedDestination);
+                    }
+                  }}
+                >
+                  Add
+                </Button>
+              </div>
+            </div>
+            
+            {/* Display selected destinations */}
+            {formData.destinations.length > 0 && (
+              <div className="mt-3">
+                <Label>Selected Destinations:</Label>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {formData.destinations.map((dest, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                    >
+                      {dest}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFormData(prev => ({
+                            ...prev,
+                            destinations: prev.destinations.filter(d => d !== dest)
+                          }));
+                        }}
+                        className="ml-1 text-blue-600 hover:text-blue-800"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Business Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="positions">Positions</Label>
               <Input
@@ -151,7 +278,27 @@ export function CallCenterForm({ callCenter, onSubmit, onCancel }: CallCenterFor
               />
             </div>
             <div>
-              <Label htmlFor="type">Type</Label>
+              <Label htmlFor="businessType">Business Type</Label>
+              <Select
+                value={formData.businessType || ''}
+                onValueChange={(value: 'call-center' | 'voip-reseller' | 'data-vendor' | 'workspace-rental' | 'individual') =>
+                  setFormData(prev => ({ ...prev, businessType: value || undefined }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select business type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BUSINESS_TYPE_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="type">Type (Legacy)</Label>
               <Input
                 id="type"
                 value={formData.type}
@@ -282,6 +429,54 @@ export function CallCenterForm({ callCenter, onSubmit, onCancel }: CallCenterFor
                 onChange={(e) => setFormData(prev => ({ ...prev, lastContacted: e.target.value }))}
               />
             </div>
+            
+            {/* Absence Management Section */}
+            <div className="border-t pt-4 mt-6">
+              <Label htmlFor="absentDays" className="text-lg font-medium text-orange-600">
+                📞 Absence Management
+              </Label>
+              <p className="text-sm text-gray-600 mb-3">
+                Set how many days this call center should be excluded from daily call suggestions
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="absentDays">Absence Period (Days)</Label>
+                  <Input
+                    id="absentDays"
+                    type="number"
+                    min="0"
+                    max="365"
+                    value={formData.absentDays}
+                    onChange={(e) => {
+                      const value = parseInt(e.target.value) || 0;
+                      setFormData(prev => ({ 
+                        ...prev, 
+                        absentDays: value,
+                        absentUntil: value > 0 ? new Date(Date.now() + (value * 24 * 60 * 60 * 1000)).toISOString() : ''
+                      }));
+                    }}
+                    placeholder="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Set to 0 for no absence. Max 365 days.
+                  </p>
+                </div>
+                {formData.absentDays > 0 && (
+                  <div>
+                    <Label>Absent Until</Label>
+                    <div className="p-2 bg-orange-50 border border-orange-200 rounded-md">
+                      <p className="text-sm font-medium text-orange-700">
+                        {new Date(formData.absentUntil).toLocaleDateString()}
+                      </p>
+                      <p className="text-xs text-orange-600">
+                        {formData.absentDays} day{formData.absentDays !== 1 ? 's' : ''} from today
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
             <div>
               <Label htmlFor="tags">Tags (comma-separated)</Label>
               <Input

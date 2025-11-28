@@ -155,6 +155,11 @@ export function AccountsList() {
                       <div className="text-xs text-gray-500">
                         ID: {account.accountId}
                       </div>
+                      {account.browser && (
+                        <div className="text-xs text-blue-600">
+                          Browser: {account.browser}
+                        </div>
+                      )}
                       <div>
                         Created {account.createdAt?.toLocaleDateString()}
                       </div>

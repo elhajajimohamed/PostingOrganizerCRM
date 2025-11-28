@@ -21,6 +21,7 @@ export class TaskService {
   // Get all tasks
   static async getAllTasks(): Promise<Task[]> {
     try {
+
       const q = query(
         collection(db, COLLECTION_NAME),
         orderBy('date', 'asc')

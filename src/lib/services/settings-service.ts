@@ -54,6 +54,73 @@ export class SettingsService {
     return ['Chrome', 'Firefox', 'Edge', 'Safari', 'Opera', 'Other'];
   }
 
+  // Get default daily calls configuration
+  static getDefaultDailyCallsConfig(): NonNullable<Settings['dailyCalls']> {
+    return {
+      daily_suggestion_count: 20,
+      cool_off_days: 15,
+      max_attempts_15_days: 3,
+      max_attempts_90_days: 3,
+      score_penalty_90_days: 15,
+      scoring_weights: {
+        mobile_available: 0.30,
+        days_since_last_call: 0.20,
+        positions_count: 0.15,
+        lead_quality_score: 0.15,
+        company_size_score: 0.10,
+        recent_attempts_penalty: 0.05,
+        business_hours_score: 0.05,
+      },
+      business_hours: {
+        'Morocco': {
+          timezone: 'Africa/Casablanca',
+          work_hours_start: 9,
+          work_hours_end: 18,
+          work_days: [1, 2, 3, 4, 5], // Monday to Friday
+        },
+        'Tunisia': {
+          timezone: 'Africa/Tunis',
+          work_hours_start: 9,
+          work_hours_end: 18,
+          work_days: [1, 2, 3, 4, 5],
+        },
+        'Senegal': {
+          timezone: 'Africa/Dakar',
+          work_hours_start: 9,
+          work_hours_end: 18,
+          work_days: [1, 2, 3, 4, 5],
+        },
+        'Ivory Coast': {
+          timezone: 'Africa/Abidjan',
+          work_hours_start: 9,
+          work_hours_end: 18,
+          work_days: [1, 2, 3, 4, 5],
+        },
+        'Guinea': {
+          timezone: 'Africa/Conakry',
+          work_hours_start: 9,
+          work_hours_end: 18,
+          work_days: [1, 2, 3, 4, 5],
+        },
+        'Cameroon': {
+          timezone: 'Africa/Douala',
+          work_hours_start: 9,
+          work_hours_end: 18,
+          work_days: [1, 2, 3, 4, 5],
+        },
+      },
+      // WhatsApp settings
+      daily_whatsapp_limit: 10,
+      whatsapp_templates: [
+        "Hello! I'm interested in your call center services. Could we discuss potential collaboration?",
+        "Hi there! I came across your call center and would like to explore partnership opportunities.",
+        "Greetings! I'm reaching out regarding your call center operations. Are you open to discussing business development?",
+        "Hello! Your call center caught my attention. I'd love to learn more about your services and potential synergies.",
+        "Hi! I'm interested in connecting with call center professionals. Would you be available for a quick conversation?"
+      ],
+    };
+  }
+
   // Get current settings
   static async getSettings(): Promise<Settings | null> {
     try {
@@ -72,6 +139,7 @@ export class SettingsService {
           browsers: data.browsers && Array.isArray(data.browsers) && data.browsers.length > 0
             ? data.browsers
             : this.getDefaultBrowsers(),
+          dailyCalls: data.dailyCalls || this.getDefaultDailyCallsConfig(),
         };
       }
 
@@ -83,6 +151,7 @@ export class SettingsService {
         updatedAt: new Date(),
         scheduling: this.getDefaultSchedulingConfig(),
         browsers: this.getDefaultBrowsers(),
+        dailyCalls: this.getDefaultDailyCallsConfig(),
       };
     } catch (error) {
       console.error('Error getting settings:', error);
@@ -92,7 +161,7 @@ export class SettingsService {
 
   // Update settings
   static async updateSettings(
-    updates: Partial<Pick<Settings, 'maxPostsPerHour' | 'cooldownMinutes' | 'browsers'>>,
+    updates: Partial<Pick<Settings, 'maxPostsPerHour' | 'cooldownMinutes' | 'browsers' | 'dailyCalls'>>,
     updatedBy: string
   ): Promise<void> {
     try {
@@ -167,6 +236,25 @@ export class SettingsService {
         errors.push('At least one browser must be configured');
       } else if (settings.browsers.length > 20) {
         errors.push('Maximum 20 browsers can be configured');
+      }
+    }
+
+    if (settings.dailyCalls !== undefined) {
+      const dc = settings.dailyCalls;
+      if (dc.daily_suggestion_count !== undefined && (dc.daily_suggestion_count < 1 || dc.daily_suggestion_count > 100)) {
+        errors.push('Daily suggestion count must be between 1 and 100');
+      }
+      if (dc.cool_off_days !== undefined && (dc.cool_off_days < 1 || dc.cool_off_days > 365)) {
+        errors.push('Cool-off days must be between 1 and 365');
+      }
+      if (dc.max_attempts_15_days !== undefined && (dc.max_attempts_15_days < 1 || dc.max_attempts_15_days > 10)) {
+        errors.push('Max attempts in 15 days must be between 1 and 10');
+      }
+      if (dc.max_attempts_90_days !== undefined && (dc.max_attempts_90_days < 1 || dc.max_attempts_90_days > 20)) {
+        errors.push('Max attempts in 90 days must be between 1 and 20');
+      }
+      if (dc.score_penalty_90_days !== undefined && (dc.score_penalty_90_days < 0 || dc.score_penalty_90_days > 100)) {
+        errors.push('Score penalty for 90 days must be between 0 and 100');
       }
     }
 

@@ -6,6 +6,70 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // Allow unauthenticated access for development
+    match /callCenters/{callCenterId} {
+      allow read, write: if true;
+      match /callHistory/{callLogId} {
+        allow read, write: if true;
+      }
+      match /contacts/{contactId} {
+        allow read, write: if true;
+      }
+      match /steps/{stepId} {
+        allow read, write: if true;
+      }
+      match /recharges/{rechargeId} {
+        allow read, write: if true;
+      }
+    }
+
+    match /phoneRotation/{rotationId} {
+      allow read, write: if true;
+    }
+
+    match /suggestions/{suggestionId} {
+      allow read, write: if true;
+    }
+
+    match /prospects/{prospectId} {
+      allow read, write: if true;
+      match /callHistory/{callLogId} {
+        allow read, write: if true;
+      }
+    }
+
+    match /tasks/{taskId} {
+      allow read, write: if true;
+    }
+
+    match /accounts/{accountId} {
+      allow read, write: if true;
+    }
+
+    match /groups/{groupId} {
+      allow read, write: if true;
+    }
+
+    match /templates/{templateId} {
+      allow read, write: if true;
+    }
+
+    match /media/{mediaId} {
+      allow read, write: if true;
+    }
+
+    match /postHistory/{postId} {
+      allow read, write: if true;
+    }
+
+    match /settings/{settingId} {
+      allow read, write: if true;
+    }
+
+    match /calendarEvents/{eventId} {
+      allow read, write: if true;
+    }
+
     // Users collection - only admins can create users, users can read/update their own data
     match /users/{userId} {
       allow read: if isAuthenticated() && (request.auth.uid == userId || isAdmin());
@@ -42,15 +106,12 @@ service cloud.firestore {
 
     // Tasks collection - users can only access their assigned tasks, admins have full access
     match /tasks/{taskId} {
-      allow read: if isAuthenticated() && (resource.data.assignedTo == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated() && (resource.data.assignedTo == request.auth.uid || isAdmin());
-      allow delete: if isAdmin();
+      allow read, write: if true; // Allow all access for development
     }
 
-    // Allow querying tasks collection for authenticated users
+    // Allow querying tasks collection for all users (development)
     match /tasks {
-      allow read: if isAuthenticated();
+      allow read, write: if true; // Allow all access for development
     }
 
     // Post history collection - operators can read/write their own posts, admins have full access
@@ -106,6 +167,21 @@ service cloud.firestore {
     }
 
     match /suggestions {
+      allow read, write: if true;
+    }
+
+    // Prospects collection - allow access for development (REMOVE IN PRODUCTION)
+    match /prospects/{prospectId} {
+       allow read, write: if true;
+
+       // Explicitly allow subcollection access for call logs
+       match /callHistory/{callLogId} {
+         allow read, write: if true;
+       }
+    }
+
+    // Allow querying prospects collection
+    match /prospects {
       allow read, write: if true;
     }
   }

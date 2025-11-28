@@ -18,7 +18,7 @@ import {
 import { db } from '@/lib/firebase';
 import { Template, CreateTemplateData, TextVariant, TemplateUsage } from '@/lib/types';
 
-const COLLECTION_NAME = 'templates';
+const COLLECTION_NAME = 'textsVOIP';
 
 export class TemplateService {
   // Get all templates

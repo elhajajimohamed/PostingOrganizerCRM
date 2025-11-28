@@ -1,0 +1,72 @@
+{
+  "description": "Facebook Groups Import Sample Format",
+  "instructions": {
+    "overview": "This JSON file contains a list of Facebook groups to import into the Groups Posting system.",
+    "required_fields": [
+      "name - The name of the Facebook group",
+      "url - The full URL to the Facebook group"
+    ],
+    "optional_fields": {
+      "memberCount": "Number of members in the group (integer)",
+      "language": "Language code (e.g., 'en', 'fr', 'ar', 'es')",
+      "tags": "Array of tags for categorization",
+      "warningCount": "Current warning count (integer, default: 0)",
+      "accountId": "Specific account ID to assign this group to"
+    },
+    "notes": [
+      "Groups with duplicate names or URLs will be skipped",
+      "If 'accountId' is not specified, groups will be unassigned",
+      "Language codes should follow ISO 639-1 standards",
+      "Member count helps with group prioritization"
+    ]
+  },
+  "sample_groups": [
+    {
+      "name": "Entrepreneurs Network Casablanca",
+      "url": "https://www.facebook.com/groups/entrepreneurs.casablanca",
+      "memberCount": 15000,
+      "language": "fr",
+      "tags": ["business", "entrepreneurship", "casablanca", "morocco"],
+      "warningCount": 0
+    },
+    {
+      "name": "Morocco Digital Marketing Hub",
+      "url": "https://www.facebook.com/groups/morocco.digital.marketing",
+      "memberCount": 8500,
+      "language": "ar",
+      "tags": ["marketing", "digital", "morocco", "business"],
+      "warningCount": 2,
+      "accountId": "optional_account_id"
+    },
+    {
+      "name": "Tech Startups Morocco",
+      "url": "https://www.facebook.com/groups/techstartups.morocco",
+      "memberCount": 12000,
+      "language": "en",
+      "tags": ["technology", "startups", "innovation", "morocco"],
+      "warningCount": 0
+    },
+    {
+      "name": "Casablanca Business Directory",
+      "url": "https://www.facebook.com/groups/casablanca.business.directory",
+      "memberCount": 6500,
+      "language": "fr",
+      "tags": ["business", "directory", "casablanca", "networking"],
+      "warningCount": 1
+    },
+    {
+      "name": "Rabat Entrepreneurs Circle",
+      "url": "https://www.facebook.com/groups/rabat.entrepreneurs.circle",
+      "memberCount": 9200,
+      "language": "fr",
+      "tags": ["entrepreneurship", "rabat", "business", "networking"],
+      "warningCount": 0
+    }
+  ],
+  "import_notes": [
+    "File should contain ONLY the array of group objects",
+    "Copy the 'sample_groups' array content for your actual import file",
+    "Remove any JSON formatting markers like 'sample_groups': [...] wrapper",
+    "Ensure all URLs are valid Facebook group URLs"
+  ]
+}

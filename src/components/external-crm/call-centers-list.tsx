@@ -14,6 +14,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { CallCenter } from '@/lib/types/external-crm';
 import { CallCenterDetailModal } from './call-center-detail-modal';
 import { PhoneDetectionService } from '@/lib/services/phone-detection-service';
+import { ExternalCRMSubcollectionsService } from '@/lib/services/external-crm-service';
+import { formatDuration, parseDuration } from '@/lib/utils/duration';
 import {
   Building,
   MapPin,
@@ -30,7 +32,8 @@ import {
   Phone,
   Eye,
   Plus,
-  Calendar
+  Calendar,
+  MessageSquare
 } from 'lucide-react';
 
 interface CallCentersListProps {
@@ -43,8 +46,6 @@ interface CallCentersListProps {
   onLoadMore?: () => void;
   totalCount?: number;
   onViewDuplicates?: () => void;
-  onSearch?: (searchTerm: string) => void;
-  onSearchComplete?: () => void;
 }
 
 const STATUS_COLORS = {
@@ -58,6 +59,40 @@ const STATUS_COLORS = {
   'On-Hold': 'bg-gray-100 text-gray-800 border-gray-200'
 };
 
+// Disposition color mapping
+const DISPOSITION_COLORS = {
+  // Positive or Progressing Outcomes (Green family)
+  'interested': '#27AE60', // Bright Green
+  'quote_requested': '#2ECC71', // Emerald
+  'callback': '#1ABC9C', // Green-Blue
+  'trial_requested': '#3498DB', // Sky Blue
+  'technical_contact': '#2980B9', // Royal Blue
+  'meeting_scheduled': '#5D6DFF', // Blue-Purple
+  'satisfied': '#16A085', // Teal
+
+  // Neutral / Temporary Blockers (Yellow family)
+  'no_budget': '#F1C40F', // Amber
+  'competitor': '#D4AC0D', // Mustard
+  'not_with_them': '#F7DC6F', // Soft Yellow
+
+  // Operational Issues (Gray family)
+  'wrong_number': '#D5D8DC', // Light Gray
+  'duplicate': '#A6ACAF', // Medium Gray
+
+  // Hard Negatives (Red family)
+  'spam': '#E74C3C', // Bright Red
+  'dead': '#922B21', // Dark Red
+  'noc': '#000000', // Black
+  'closed': '#424949', // Charcoal
+  'out': '#2E4053', // Slate Gray
+  'abusive': '#7B241C', // Blood Red
+
+  // Uncertain / No Clear Answer (Orange family)
+  'nc': '#E67E22', // Orange
+  'busy': '#F39C12', // Soft Orange
+  'noanswer': '#E57373', // Light Red / Coral
+} as const;
+
 export function CallCentersList({
   callCenters,
   onEdit,
@@ -67,9 +102,7 @@ export function CallCentersList({
   hasMore = false,
   onLoadMore,
   totalCount = 0,
-  onViewDuplicates,
-  onSearch,
-  onSearchComplete
+  onViewDuplicates
 }: CallCentersListProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [viewMode, setViewMode] = useState<'list' | 'card'>('list');
@@ -82,6 +115,7 @@ export function CallCentersList({
     country: '',
     city: '',
     status: '',
+    businessType: '',
     minPositions: '',
     maxPositions: '',
     tags: '',
@@ -104,28 +138,62 @@ export function CallCentersList({
     duration: 0,
     notes: '',
     followUp: 'none',
-    steps: [] as Array<{ title: string; description: string; priority: string }>,
-    stepDate: new Date().toISOString().split('T')[0],
+    disposition: '',
+    callDate: new Date().toLocaleDateString('en-US'), // Default to today in mm/dd/yyyy format
+    callTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }), // Default to current time
+    phone_used: '', // Track which phone number was used
+    durationInput: '', // Raw input value for duration field
+    callbackDate: '',
+    meetingDate: '',
+    meetingLocation: '',
+    competitorName: '',
   });
+  const [isSavingCallLog, setIsSavingCallLog] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<CallCenter[] | null>(null);
+  const [isServerSearching, setIsServerSearching] = useState(false);
+  const [dispositions, setDispositions] = useState<{[callCenterId: string]: string | null}>({});
 
-  // Debounced search
+  // Debounced search - client-side for empty search, server-side for actual search
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const debouncedSearch = useCallback((searchTerm: string) => {
+  const debouncedSearch = useCallback(async (searchTerm: string) => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
+
     searchTimeoutRef.current = setTimeout(async () => {
-      setIsSearching(true);
-      if (onSearch) {
-        await onSearch(searchTerm);
-      }
-      setIsSearching(false);
-      if (onSearchComplete) {
-        onSearchComplete();
+      if (searchTerm.trim().length >= 2) {
+        // Server-side search for meaningful terms
+        setIsServerSearching(true);
+        setIsSearching(true);
+        try {
+          const response = await fetch(`/api/external-crm/search?q=${encodeURIComponent(searchTerm.trim())}&limit=50`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success) {
+              setSearchResults(data.data.results);
+            }
+          }
+        } catch (error) {
+          console.error('Search failed:', error);
+        } finally {
+          setIsServerSearching(false);
+          setIsSearching(false);
+        }
+      } else if (searchTerm.trim().length === 0) {
+        // Clear search results for empty search
+        setSearchResults(null);
+        setIsSearching(false);
+      } else {
+        // Client-side feedback for short terms
+        setIsSearching(true);
+        setTimeout(() => {
+          setIsSearching(false);
+        }, 300);
       }
     }, 300); // 300ms delay
-  }, [onSearch, onSearchComplete]);
+  }, []);
 
   const handleCallCenterClick = (callCenter: CallCenter) => {
     setSelectedCallCenter(callCenter);
@@ -139,7 +207,7 @@ export function CallCentersList({
   };
 
   const handleDeleteCallCenterFromModal = (id: string) => {
-    onDelete(parseInt(id));
+    onDelete(id);
     setShowDetailModal(false);
     setSelectedCallCenter(null);
   };
@@ -151,16 +219,91 @@ export function CallCentersList({
       duration: 0,
       notes: '',
       followUp: 'none',
-      steps: [],
-      stepDate: new Date().toISOString().split('T')[0],
+      disposition: '',
+      callDate: new Date().toLocaleDateString('en-US'), // Default to today in mm/dd/yyyy format
+      callTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }), // Default to current time
+      phone_used: '', // Track which phone number was used
+      durationInput: '', // Raw input value for duration field
+      callbackDate: '',
+      meetingDate: '',
+      meetingLocation: '',
+      competitorName: '',
     });
+    setSaveError('');
+    setIsSavingCallLog(false);
     setShowCallLogDialog(true);
   };
 
   const handleSaveCallLog = async () => {
     if (!currentCallCenter || !callLogData.outcome || !callLogData.notes) return;
 
+    setIsSavingCallLog(true);
+    setSaveError('');
+
     try {
+      // Helper function to convert mm/dd/yyyy and time to ISO string, or use now if empty
+      const getCallDateTimeISO = (callDateStr?: string, callTimeStr?: string): string => {
+        console.log('🔍 [DEBUG] getCallDateTimeISO called with:', { callDateStr, callTimeStr });
+
+        if (!callDateStr || callDateStr.trim() === '') {
+          console.log('🔍 [DEBUG] No date provided, using now');
+          return new Date().toISOString();
+        }
+
+        // Parse mm/dd/yyyy format
+        const parts = callDateStr.split('/');
+        if (parts.length !== 3) {
+          console.warn('Invalid date format, using today:', callDateStr);
+          return new Date().toISOString();
+        }
+
+        const [month, day, year] = parts.map(p => parseInt(p, 10));
+        if (isNaN(month) || isNaN(day) || isNaN(year)) {
+          console.warn('Invalid date numbers, using today:', callDateStr);
+          return new Date().toISOString();
+        }
+
+        // Create date object at midnight local time
+        const date = new Date(year, month - 1, day); // month is 0-indexed
+        if (isNaN(date.getTime())) {
+          console.warn('Invalid date, using today:', callDateStr);
+          return new Date().toISOString();
+        }
+
+        // Default time values - use current time if no time provided
+        let hours = new Date().getHours(), minutes = new Date().getMinutes();
+        console.log('🔍 [DEBUG] Initial time values:', { hours, minutes });
+
+        // If time is provided, parse it
+        if (callTimeStr && callTimeStr.trim() !== '') {
+          const timeParts = callTimeStr.split(':');
+          console.log('🔍 [DEBUG] Time parts:', timeParts);
+          if (timeParts.length >= 2) {
+            hours = parseInt(timeParts[0], 10);
+            minutes = parseInt(timeParts[1], 10);
+            console.log('🔍 [DEBUG] Parsed time:', { hours, minutes });
+
+            // Validate time values
+            if (isNaN(hours) || isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+              console.warn('Invalid time format, using current time:', callTimeStr);
+              hours = new Date().getHours();
+              minutes = new Date().getMinutes();
+            }
+          } else {
+            console.log('No valid time format, using current time');
+          }
+        } else {
+          console.log('No time provided, using current time');
+        }
+
+        // Set the time on the date object
+        date.setHours(hours, minutes, 0, 0);
+        const isoString = date.toISOString();
+        console.log('🔍 [DEBUG] Final date and ISO:', { date: date.toString(), isoString });
+
+        return isoString;
+      };
+
       // Save call log
       const response = await fetch('/api/external-crm/daily-calls/call-log', {
         method: 'POST',
@@ -168,105 +311,97 @@ export function CallCentersList({
         body: JSON.stringify({
           callCenterId: currentCallCenter.id.toString(),
           callLog: {
-            date: new Date().toISOString(),
+            date: getCallDateTimeISO(callLogData.callDate, callLogData.callTime),
             outcome: callLogData.outcome,
             duration: callLogData.duration,
             notes: callLogData.notes,
             followUp: callLogData.followUp,
+            disposition: callLogData.disposition,
+            phone_used: callLogData.phone_used,
+            callTime: callLogData.callTime,
+            callbackDate: callLogData.callbackDate,
+            meetingDate: callLogData.meetingDate,
+            meetingLocation: callLogData.meetingLocation,
+            competitorName: callLogData.competitorName,
           },
         }),
       });
 
       if (response.ok) {
-        // Create steps in calendar if any were added
-        if (callLogData.steps.length > 0) {
-          for (const step of callLogData.steps) {
-            try {
-              const stepResponse = await fetch('/api/external-crm/calendar', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  title: step.title,
-                  description: step.description,
-                  date: callLogData.stepDate,
-                  startTime: '09:00',
-                  endTime: '10:00',
-                  type: 'call',
-                  callCenterId: currentCallCenter.id.toString(),
-                  priority: step.priority || 'medium',
-                  status: 'scheduled',
-                  completed: false,
-                  notes: `Created from call log: ${callLogData.notes}`,
-                  tags: ['step', 'call-log'],
-                  attendees: [],
-                  reminder: {
-                    enabled: true,
-                    timing: [{ type: 'minutes', value: 15 }],
-                    methods: ['email', 'browser'],
-                    escalation: false,
-                    snoozeEnabled: true,
-                    snoozeDuration: 5
-                  },
-                  recurring: {
-                    enabled: false,
-                    pattern: 'weekly',
-                    interval: 1,
-                    daysOfWeek: [],
-                    endDate: '',
-                    occurrences: 0,
-                    exceptions: []
-                  },
-                  followUpRequired: false,
-                  outcome: '',
-                  createdBy: 'system',
-                  createdAt: new Date().toISOString(),
-                  updatedAt: new Date().toISOString(),
-                  lastModifiedBy: 'system'
-                }),
-              });
+        // Update dispositions state with the new disposition
+        setDispositions(prev => ({
+          ...prev,
+          [currentCallCenter.id.toString()]: callLogData.disposition || null
+        }));
 
-              if (!stepResponse.ok) {
-                console.error('Failed to create calendar event for step:', step.title);
-              }
-            } catch (error) {
-              console.error('Error creating calendar event for step:', error);
-            }
-          }
-        }
-
+        // Reset form state and close dialog
+        setCallLogData({
+          outcome: '',
+          duration: 0,
+          notes: '',
+          followUp: 'none',
+          disposition: '',
+          callDate: new Date().toLocaleDateString('en-US'), // Default to today in mm/dd/yyyy format
+          callTime: new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' }), // Default to current time
+          phone_used: '', // Track which phone number was used
+          durationInput: '', // Raw input value for duration field
+          callbackDate: '',
+          meetingDate: '',
+          meetingLocation: '',
+          competitorName: '',
+        });
+        setSaveError('');
+        setIsSavingCallLog(false);
         setShowCallLogDialog(false);
         setCurrentCallCenter(null);
+      } else {
+        const errorData = await response.json();
+        console.error('❌ [CALL-LOG] Failed to save call log:', errorData);
+        setSaveError(errorData.error || 'Failed to save call log. Please try again.');
       }
     } catch (error) {
-      console.error('Error saving call log:', error);
+      console.error('❌ [CALL-LOG] Error saving call log:', error);
+      setSaveError(error instanceof Error ? error.message : 'Failed to save call log. Please try again.');
+    } finally {
+      setIsSavingCallLog(false);
     }
   };
 
-  const handleAddStep = () => {
-    setCallLogData(prev => ({
-      ...prev,
-      steps: [...prev.steps, { title: '', description: '', priority: 'medium' }]
-    }));
-  };
 
-  const handleUpdateStep = (index: number, field: string, value: string) => {
-    setCallLogData(prev => ({
-      ...prev,
-      steps: prev.steps.map((step, i) =>
-        i === index ? { ...step, [field]: value } : step
-      )
-    }));
-  };
+  // Use search results if available, otherwise use regular filtering
+  const baseCallCenters = searchResults !== null ? searchResults : callCenters;
 
-  const handleRemoveStep = (index: number) => {
-    setCallLogData(prev => ({
-      ...prev,
-      steps: prev.steps.filter((_, i) => i !== index)
-    }));
-  };
+  const filteredCallCenters = baseCallCenters.filter(callCenter => {
+    // Skip search filtering if we already have search results from server
+    if (searchResults !== null) {
+      // Only apply other filters (country, status, etc.) to search results
+      const matchesCountry = !filters.country || filters.country === 'all' || callCenter.country === filters.country;
+      const matchesCity = !filters.city || filters.city === 'all' || callCenter.city === filters.city;
+      const matchesStatus = !filters.status || filters.status === 'all' || callCenter.status === filters.status;
+      const matchesBusinessType = !filters.businessType || filters.businessType === 'all' || callCenter.businessType === filters.businessType;
 
-  const filteredCallCenters = callCenters.filter(callCenter => {
-    // Enhanced global search
+      // Enhanced filters
+      const matchesMinPositions = !filters.minPositions || callCenter.positions >= parseInt(filters.minPositions);
+      const matchesMaxPositions = !filters.maxPositions || callCenter.positions <= parseInt(filters.maxPositions);
+      const matchesMinValue = !filters.minValue || (callCenter.value || 0) >= parseInt(filters.minValue);
+      const matchesMaxValue = !filters.maxValue || (callCenter.value || 0) <= parseInt(filters.maxValue);
+
+      // Tag filtering
+      const matchesTags = !filters.tags ||
+        callCenter.tags?.some(tag => tag.toLowerCase().includes(filters.tags.toLowerCase()));
+
+      // Date range filtering
+      const matchesDateFrom = !filters.dateFrom ||
+        new Date(callCenter.createdAt) >= new Date(filters.dateFrom);
+      const matchesDateTo = !filters.dateTo ||
+        new Date(callCenter.createdAt) <= new Date(filters.dateTo);
+
+      return matchesCountry && matchesCity && matchesStatus && matchesBusinessType &&
+             matchesMinPositions && matchesMaxPositions && matchesMinValue &&
+             matchesMaxValue && matchesTags && matchesDateFrom && matchesDateTo;
+    }
+
+    // Original client-side filtering for non-search cases
     const searchTerm = filters.search.toLowerCase();
     const matchesSearch = !filters.search ||
       callCenter.name.toLowerCase().includes(searchTerm) ||
@@ -280,6 +415,7 @@ export function CallCentersList({
     const matchesCountry = !filters.country || filters.country === 'all' || callCenter.country === filters.country;
     const matchesCity = !filters.city || filters.city === 'all' || callCenter.city === filters.city;
     const matchesStatus = !filters.status || filters.status === 'all' || callCenter.status === filters.status;
+    const matchesBusinessType = !filters.businessType || filters.businessType === 'all' || callCenter.businessType === filters.businessType;
 
     // Enhanced filters
     const matchesMinPositions = !filters.minPositions || callCenter.positions >= parseInt(filters.minPositions);
@@ -297,7 +433,7 @@ export function CallCentersList({
     const matchesDateTo = !filters.dateTo ||
       new Date(callCenter.createdAt) <= new Date(filters.dateTo);
 
-    return matchesSearch && matchesCountry && matchesCity && matchesStatus &&
+    return matchesSearch && matchesCountry && matchesCity && matchesStatus && matchesBusinessType &&
            matchesMinPositions && matchesMaxPositions && matchesMinValue &&
            matchesMaxValue && matchesTags && matchesDateFrom && matchesDateTo;
   });
@@ -453,6 +589,95 @@ ${index + 1}. ${cc.name}
   const uniqueCountries = [...new Set(callCenters.map(cc => cc.country).filter(country => country && country.trim()))].sort();
   const uniqueCities = [...new Set(callCenters.map(cc => cc.city).filter(city => city && city.trim()))].sort();
 
+  // Fetch dispositions for all call centers
+  useEffect(() => {
+    const fetchDispositions = async () => {
+      console.log('🔍 [DISPOSITIONS] Starting to fetch dispositions for', callCenters.length, 'call centers');
+      const newDispositions: {[callCenterId: string]: string | null} = {};
+
+      // For all call centers, fetch their call history
+      for (const callCenter of callCenters) {
+        try {
+          console.log(`🔄 [DISPOSITIONS] Fetching call history for ${callCenter.name} (${callCenter.id})`);
+          const callHistory = await ExternalCRMSubcollectionsService.getCallHistory(callCenter.id.toString());
+          const disposition = callHistory.length > 0 ? (callHistory[0].disposition || null) : null;
+          newDispositions[callCenter.id.toString()] = disposition;
+          console.log(`📞 [DISPOSITIONS] Call center ${callCenter.name}: ${callHistory.length} calls, latest disposition: ${disposition}`);
+        } catch (error) {
+          console.error(`❌ [DISPOSITIONS] Error fetching call history for call center ${callCenter.id}:`, error);
+          newDispositions[callCenter.id.toString()] = null;
+        }
+      }
+
+      console.log('✅ [DISPOSITIONS] Finished fetching dispositions:', Object.keys(newDispositions).filter(id => newDispositions[id] !== null).length, 'with dispositions,', Object.keys(newDispositions).filter(id => newDispositions[id] === null).length, 'without');
+      setDispositions(newDispositions);
+    };
+
+    if (callCenters.length > 0) {
+      fetchDispositions();
+    }
+  }, [callCenters]);
+
+  // Function to refresh disposition for a specific call center
+  const refreshDispositionForCallCenter = async (callCenterId: string) => {
+    try {
+      console.log(`🔄 [DISPOSITIONS] Refreshing disposition for call center ${callCenterId}`);
+      const callHistory = await ExternalCRMSubcollectionsService.getCallHistory(callCenterId);
+      const disposition = callHistory.length > 0 ? (callHistory[0].disposition || null) : null;
+      setDispositions(prev => ({
+        ...prev,
+        [callCenterId]: disposition
+      }));
+      console.log(`✅ [DISPOSITIONS] Refreshed disposition for ${callCenterId}: ${disposition}`);
+    } catch (error) {
+      console.error(`❌ [DISPOSITIONS] Error refreshing disposition for call center ${callCenterId}:`, error);
+    }
+  };
+
+  // Helper function to get the latest disposition for a call center
+  const getLatestDisposition = (callCenter: CallCenter): string | null => {
+    return dispositions[callCenter.id.toString()] || null;
+  };
+
+  // Helper function to get disposition color
+  const getDispositionColor = (disposition: string | null): string => {
+    if (!disposition || !DISPOSITION_COLORS[disposition as keyof typeof DISPOSITION_COLORS]) {
+      return '#FFFFFF'; // Default white
+    }
+    return DISPOSITION_COLORS[disposition as keyof typeof DISPOSITION_COLORS];
+  };
+
+  // Helper function to get disposition display name
+  const getDispositionDisplayName = (disposition: string | null): string => {
+    if (!disposition) return '';
+
+    const names: Record<string, string> = {
+      'interested': 'INT',
+      'quote_requested': 'REQ',
+      'callback': 'CALLBK',
+      'trial_requested': 'TRIAL',
+      'technical_contact': 'TECH',
+      'meeting_scheduled': 'MEET',
+      'satisfied': 'SAT',
+      'no_budget': 'NOQ',
+      'competitor': 'COMP',
+      'not_with_them': 'NWT',
+      'wrong_number': 'WRONG',
+      'duplicate': 'DUP',
+      'spam': 'SPAM',
+      'dead': 'DEAD',
+      'noc': 'NOC',
+      'closed': 'CLOSED',
+      'out': 'OUT',
+      'abusive': 'ABUSIVE',
+      'nc': 'NC',
+      'busy': 'BUSY',
+      'noanswer': 'NOANSWER'
+    };
+
+    return names[disposition] || disposition.toUpperCase();
+  };
+
   // Check for potential duplicates for a call center
   const checkForDuplicates = async (callCenter: CallCenter) => {
     try {
@@ -490,27 +715,27 @@ ${index + 1}. ${cc.name}
   });
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50 flex flex-col">
       {/* Enhanced Search and Filters Header */}
-      <Card className="mb-6 flex-shrink-0 border-0 shadow-lg bg-gradient-to-r from-white to-gray-50">
-        <CardHeader className="pb-4">
+      <Card className="mb-8 flex-shrink-0 border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl">
+        <CardHeader className="pb-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
-                <Building className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <Building className="w-6 h-6 text-white" />
               </div>
               <div>
-                <CardTitle className="text-xl">Call Center Directory</CardTitle>
-                <p className="text-sm text-gray-600 mt-1">Search, filter, and manage your call centers</p>
+                <CardTitle className="text-2xl text-slate-800">Call Center Directory</CardTitle>
+                <p className="text-slate-600 mt-1">Search, filter, and manage your call centers with elegance</p>
               </div>
             </div>
             <div className="flex items-center space-x-3">
-              <div className="flex items-center bg-white rounded-lg p-1 shadow-sm">
+              <div className="flex items-center bg-slate-100/50 backdrop-blur-sm rounded-xl p-1 border border-slate-200/50">
                 <Button
                   variant={viewMode === 'list' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('list')}
-                  className="rounded-md"
+                  className="rounded-lg"
                 >
                   <Eye className="w-4 h-4 mr-2" />
                   List
@@ -519,7 +744,7 @@ ${index + 1}. ${cc.name}
                   variant={viewMode === 'card' ? 'default' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('card')}
-                  className="rounded-md"
+                  className="rounded-lg"
                 >
                   <Building className="w-4 h-4 mr-2" />
                   Cards
@@ -528,9 +753,9 @@ ${index + 1}. ${cc.name}
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Global Search */}
-          <div className="relative mb-6">
+        <CardContent className="space-y-6">
+          {/* Enhanced Global Search */}
+          <div className="relative mb-8">
             <div className="relative">
               <Input
                 placeholder="Search call centers by name, location, contact info, or tags..."
@@ -538,40 +763,42 @@ ${index + 1}. ${cc.name}
                 onChange={(e) => {
                   const newSearch = e.target.value;
                   setFilters(prev => ({ ...prev, search: newSearch }));
-                  // Trigger debounced search in parent component
+                  // Only trigger UI feedback for client-side filtering
                   debouncedSearch(newSearch);
                 }}
-                className="pl-14 pr-28 h-14 text-lg border-3 border-blue-300 focus:border-blue-500 rounded-2xl shadow-lg bg-white focus:ring-4 focus:ring-blue-100 transition-all duration-200"
+                className="pl-16 pr-32 h-14 text-lg border-2 border-slate-200/60 focus:border-blue-400 focus:ring-4 focus:ring-blue-400/20 rounded-2xl shadow-lg bg-white/50 backdrop-blur-sm transition-all duration-200"
               />
-              <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
-                <div className="w-6 h-6 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-md">
-                  <span className="text-white text-sm">🔍</span>
+              <div className="absolute inset-y-0 left-0 pl-6 flex items-center pointer-events-none">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-md">
+                  <span className="text-white text-base">🔍</span>
                 </div>
               </div>
-              {isSearching && (
-                <div className="absolute inset-y-0 right-0 pr-5 flex items-center">
-                  <RefreshCw className="w-6 h-6 text-blue-500 animate-spin" />
-                </div>
-              )}
-              {filters.search && !isSearching && (
-                <div className="absolute inset-y-0 right-0 pr-5 flex items-center">
+              {(filters.search || searchResults) && !isSearching && !isServerSearching && (
+                <div className="absolute inset-y-0 right-0 pr-24 flex items-center">
                   <button
                     onClick={() => {
                       setFilters(prev => ({ ...prev, search: '' }));
-                      debouncedSearch('');
+                      setSearchResults(null);
+                      setIsSearching(false);
+                      setIsServerSearching(false);
                     }}
-                    className="w-6 h-6 text-gray-400 hover:text-gray-600 transition-colors mr-3 flex items-center justify-center hover:bg-gray-100 rounded-full"
+                    className="w-8 h-8 text-slate-400 hover:text-slate-600 transition-colors mr-3 flex items-center justify-center hover:bg-slate-100 rounded-full"
                   >
                     ✕
                   </button>
                 </div>
               )}
-              <div className="absolute inset-y-0 right-0 pr-20 flex items-center">
+              {isSearching && (
+                <div className="absolute inset-y-0 right-0 pr-24 flex items-center">
+                  <RefreshCw className="w-6 h-6 text-blue-500 animate-spin" />
+                </div>
+              )}
+              <div className="absolute inset-y-0 right-0 pr-6 flex items-center">
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-                  className="h-10 px-4 text-gray-600 hover:text-gray-900 hover:bg-blue-50 transition-colors rounded-xl font-medium"
+                  className="h-11 px-4 text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors rounded-xl font-medium"
                 >
                   <span className="text-sm mr-2">Filters</span>
                   {showAdvancedFilters ? '▲' : '▼'}
@@ -579,17 +806,19 @@ ${index + 1}. ${cc.name}
               </div>
             </div>
 
-            {/* Search hint */}
-            <div className="text-center mt-3">
-              <p className="text-sm text-gray-500">
-                💡 <span className="font-medium">Pro tip:</span> Use keywords like "Morocco", "Casablanca", or specific company names
-              </p>
+            {/* Enhanced Search hint */}
+            <div className="text-center mt-4">
+              <div className="inline-flex items-center px-4 py-2 bg-slate-100/50 backdrop-blur-sm rounded-xl border border-slate-200/50">
+                <span className="text-slate-600 text-sm">💡</span>
+                <span className="text-sm text-slate-600 ml-2">
+                  <span className="font-semibold text-slate-700">Pro tip:</span> Use keywords like "Morocco", "Casablanca", or specific company names
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Advanced Filters - Collapsible */}
-          {showAdvancedFilters && (
-            <div className="space-y-4 border-t border-gray-200 pt-6 animate-in slide-in-from-top-2 duration-300">
+          {/* Advanced Filters */}
+          <div className="space-y-4 border-t border-gray-200 pt-6 animate-in slide-in-from-top-2 duration-300">
               {/* Primary Filters */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="relative">
@@ -635,6 +864,22 @@ ${index + 1}. ${cc.name}
                       <SelectItem value="Closed-Won">🎉 Closed-Won</SelectItem>
                       <SelectItem value="Closed-Lost">❌ Closed-Lost</SelectItem>
                       <SelectItem value="On-Hold">⏸️ On-Hold</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="relative">
+                  <Select value={filters.businessType} onValueChange={(value) => setFilters(prev => ({ ...prev, businessType: value }))}>
+                    <SelectTrigger className="h-11 border-2 border-gray-200 focus:border-blue-500 rounded-lg">
+                      <SelectValue placeholder="🏢 All Business Types" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">🏢 All Business Types</SelectItem>
+                      <SelectItem value="call-center">🏢 Call Center</SelectItem>
+                      <SelectItem value="voip-reseller">📞 VoIP Reseller</SelectItem>
+                      <SelectItem value="data-vendor">📄 Data Vendor (Files)</SelectItem>
+                      <SelectItem value="workspace-rental">🏢 Workspace Rental</SelectItem>
+                      <SelectItem value="individual">👤 Individual</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -729,27 +974,31 @@ ${index + 1}. ${cc.name}
                 </div>
               </div>
             </div>
-          )}
-
           {/* Filter Actions */}
           <div className="flex items-center justify-between pt-6 border-t border-gray-200">
             <div className="flex items-center space-x-4">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setFilters({
-                  search: '',
-                  country: '',
-                  city: '',
-                  status: '',
-                  minPositions: '',
-                  maxPositions: '',
-                  tags: '',
-                  minValue: '',
-                  maxValue: '',
-                  dateFrom: '',
-                  dateTo: ''
-                })}
+                onClick={() => {
+                  setFilters({
+                    search: '',
+                    country: '',
+                    city: '',
+                    status: '',
+                    businessType: '',
+                    minPositions: '',
+                    maxPositions: '',
+                    tags: '',
+                    minValue: '',
+                    maxValue: '',
+                    dateFrom: '',
+                    dateTo: ''
+                  });
+                  setSearchResults(null);
+                  setIsSearching(false);
+                  setIsServerSearching(false);
+                }}
                 className="flex items-center gap-2 hover:bg-red-50 hover:border-red-200 hover:text-red-700 transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
@@ -1047,12 +1296,18 @@ ${index + 1}. ${cc.name}
         <CardHeader className="flex-shrink-0 pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <CardTitle>Call Centers ({sortedCallCenters.length})</CardTitle>
-              {filteredCallCenters.length !== callCenters.length && (
+              <CardTitle>
+                {searchResults !== null ? 'Search Results' : 'Call Centers'} ({sortedCallCenters.length})
+              </CardTitle>
+              {searchResults !== null ? (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  Search: "{filters.search}" ({filteredCallCenters.length} results)
+                </Badge>
+              ) : filteredCallCenters.length !== callCenters.length ? (
                 <Badge variant="secondary">
                   Filtered: {filteredCallCenters.length} of {callCenters.length}
                 </Badge>
-              )}
+              ) : null}
             </div>
             <div className="flex items-center space-x-2">
               {onViewDuplicates && (
@@ -1131,6 +1386,7 @@ ${index + 1}. ${cc.name}
                       country: '',
                       city: '',
                       status: '',
+                      businessType: '',
                       minPositions: '',
                       maxPositions: '',
                       tags: '',
@@ -1178,9 +1434,16 @@ ${index + 1}. ${cc.name}
               {/* Call Center Items */}
               {viewMode === 'list' ? (
                 <div className="space-y-4">
-                   {sortedCallCenters.map((callCenter, index) => (
-                     <Card key={`${callCenter.id}-${index}`} className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500">
-                       <CardContent className="p-6">
+                   {sortedCallCenters.map((callCenter, index) => {
+                     const latestDisposition = getLatestDisposition(callCenter);
+                     const cardColor = getDispositionColor(latestDisposition);
+                     return (
+                       <Card
+                         key={`${callCenter.id}-${index}`}
+                         className="hover:shadow-lg transition-all duration-200 border-l-4 border-l-blue-500"
+                         style={{ backgroundColor: cardColor }}
+                       >
+                         <CardContent className="p-6">
                          <div className="flex items-start justify-between">
                            <div className="flex-1 min-w-0">
                              {/* Header Section */}
@@ -1188,8 +1451,8 @@ ${index + 1}. ${cc.name}
                                <div className="flex-1 min-w-0">
                                  <div className="flex items-center gap-3 mb-2">
                                    <Checkbox
-                                     checked={selectedIds.includes(callCenter.id.toString())}
-                                     onCheckedChange={(checked: boolean) => handleSelect(callCenter.id.toString(), checked)}
+                                     checked={callCenter.id ? selectedIds.includes(callCenter.id.toString()) : false}
+                                     onCheckedChange={(checked: boolean) => callCenter.id && handleSelect(callCenter.id.toString(), checked)}
                                    />
                                    <button
                                      className="text-xl font-bold text-gray-900 hover:text-blue-600 transition-colors cursor-pointer truncate"
@@ -1213,9 +1476,28 @@ ${index + 1}. ${cc.name}
                                </div>
 
                                {/* Status Badge */}
-                               <Badge className={`${STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]} text-xs px-3 py-1`}>
-                                 {callCenter.status}
-                               </Badge>
+                               <div className="flex items-center gap-2">
+                                 <Badge className={`${STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]} text-xs px-3 py-1`}>
+                                   {callCenter.status}
+                                 </Badge>
+                                 {(() => {
+                                   const latestDisposition = getLatestDisposition(callCenter);
+                                   if (latestDisposition) {
+                                     const color = getDispositionColor(latestDisposition);
+                                     const displayName = getDispositionDisplayName(latestDisposition);
+                                     return (
+                                       <div
+                                         className="inline-flex items-center px-2 py-1 text-xs font-medium text-white rounded-full border border-white/20 shadow-sm"
+                                         style={{ backgroundColor: color }}
+                                         title={`Latest disposition: ${displayName}`}
+                                       >
+                                         {displayName}
+                                       </div>
+                                     );
+                                   }
+                                   return null;
+                                 })()}
+                               </div>
                              </div>
 
                              {/* Main Content Grid */}
@@ -1226,6 +1508,18 @@ ${index + 1}. ${cc.name}
                                    <span className="text-sm font-medium text-gray-700">Positions</span>
                                    <span className="text-lg font-bold text-gray-900">{callCenter.positions}</span>
                                  </div>
+                                 {callCenter.businessType && (
+                                   <div className="flex items-center justify-between">
+                                     <span className="text-sm font-medium text-gray-700">Type</span>
+                                     <Badge variant="secondary" className="text-xs bg-blue-50 text-blue-700">
+                                       {callCenter.businessType === 'call-center' && '🏢 Call Center'}
+                                       {callCenter.businessType === 'voip-reseller' && '📞 VoIP Reseller'}
+                                       {callCenter.businessType === 'data-vendor' && '📄 Data Vendor'}
+                                       {callCenter.businessType === 'workspace-rental' && '🏢 Workspace Rental'}
+                                       {callCenter.businessType === 'individual' && '👤 Individual'}
+                                     </Badge>
+                                   </div>
+                                 )}
                                  {callCenter.value && (
                                    <div className="flex items-center justify-between">
                                      <span className="text-sm font-medium text-gray-700">Value</span>
@@ -1286,17 +1580,31 @@ ${index + 1}. ${cc.name}
                                </div>
                              )}
 
+                             {/* Calling Destinations */}
+                             {callCenter.destinations && callCenter.destinations.length > 0 && (
+                               <div className="mb-4">
+                                 <div className="text-sm font-medium text-gray-700 mb-2">🎯 Calling Destinations</div>
+                                 <div className="flex flex-wrap gap-2">
+                                   {callCenter.destinations.map((destination, index) => (
+                                     <Badge key={index} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
+                                       🌍 {destination}
+                                     </Badge>
+                                   ))}
+                                 </div>
+                               </div>
+                             )}
+
                              {/* Action Buttons */}
                              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                                <div className="flex items-center gap-2">
-                                 {callCenter.phones.length > 0 && callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 ? (
+                                 {callCenter.phone_infos && callCenter.phone_infos.length > 0 && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 ? (
                                    <Button
                                      asChild
                                      size="sm"
                                      className="bg-green-600 hover:bg-green-700 text-white"
                                    >
                                      <a
-                                       href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
+                                       href={PhoneDetectionService.getWhatsAppLink(callCenter.phone_infos[0].phone_norm)}
                                        target="_blank"
                                        rel="noopener noreferrer"
                                      >
@@ -1315,7 +1623,10 @@ ${index + 1}. ${cc.name}
                                      WhatsApp
                                    </Button>
                                  )}
-                                 <Button variant="outline" size="sm" onClick={() => handleOpenCallLog(callCenter)}>
+                                 <Button
+                                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 transform hover:scale-[1.02] active:scale-[0.98] border-2 border-slate-200 bg-white/50 backdrop-blur-sm text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:shadow-md h-8 rounded-lg px-4 py-1.5 text-xs"
+                                   onClick={() => handleOpenCallLog(callCenter)}
+                                 >
                                    <Phone className="w-4 h-4 mr-2" />
                                    Log Call
                                  </Button>
@@ -1329,7 +1640,7 @@ ${index + 1}. ${cc.name}
                                  <Button
                                    variant="ghost"
                                    size="sm"
-                                   onClick={() => onDelete(callCenter.id.toString())}
+                                   onClick={() => callCenter.id && onDelete(callCenter.id.toString())}
                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                  >
                                    <Trash2 className="w-4 h-4" />
@@ -1340,24 +1651,51 @@ ${index + 1}. ${cc.name}
                          </div>
                        </CardContent>
                      </Card>
-                  ))}
+                     );
+                   })}
                 </div>
               ) : (
                 /* Card View */
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                   {sortedCallCenters.map((callCenter, index) => (
-                     <Card key={`${callCenter.id}-${index}`} className="hover:shadow-xl transition-all duration-300 border-0 shadow-md bg-white">
-                       <CardContent className="p-6">
+                   {sortedCallCenters.map((callCenter, index) => {
+                     const latestDisposition = getLatestDisposition(callCenter);
+                     const cardColor = getDispositionColor(latestDisposition);
+                     return (
+                       <Card
+                         key={`${callCenter.id}-${index}`}
+                         className="hover:shadow-xl transition-all duration-300 border-0 shadow-md"
+                         style={{ backgroundColor: cardColor }}
+                       >
+                         <CardContent className="p-6">
                          {/* Header with checkbox and status */}
                          <div className="flex items-start justify-between mb-4">
                            <Checkbox
-                             checked={selectedIds.includes(callCenter.id.toString())}
-                             onCheckedChange={(checked: boolean) => handleSelect(callCenter.id.toString(), checked)}
+                             checked={callCenter.id ? selectedIds.includes(callCenter.id.toString()) : false}
+                             onCheckedChange={(checked: boolean) => callCenter.id && handleSelect(callCenter.id.toString(), checked)}
                              className="mt-1"
                            />
-                           <Badge className={`${STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]} text-xs px-3 py-1 ml-auto`}>
-                             {callCenter.status}
-                           </Badge>
+                           <div className="flex items-center gap-2 ml-auto">
+                             <Badge className={`${STATUS_COLORS[callCenter.status as keyof typeof STATUS_COLORS]} text-xs px-3 py-1`}>
+                               {callCenter.status}
+                             </Badge>
+                             {(() => {
+                               const latestDisposition = getLatestDisposition(callCenter);
+                               if (latestDisposition) {
+                                 const color = getDispositionColor(latestDisposition);
+                                 const displayName = getDispositionDisplayName(latestDisposition);
+                                 return (
+                                   <div
+                                     className="inline-flex items-center px-2 py-1 text-xs font-medium text-white rounded-full border border-white/20 shadow-sm"
+                                     style={{ backgroundColor: color }}
+                                     title={`Latest disposition: ${displayName}`}
+                                   >
+                                     {displayName}
+                                   </div>
+                                 );
+                               }
+                               return null;
+                             })()}
+                           </div>
                          </div>
 
                          {/* Company Name */}
@@ -1388,7 +1726,18 @@ ${index + 1}. ${cc.name}
                              <div className="text-2xl font-bold text-gray-900">{callCenter.positions}</div>
                              <div className="text-xs text-gray-600 uppercase tracking-wide">Positions</div>
                            </div>
-                           {callCenter.value && (
+                           {callCenter.businessType ? (
+                             <div className="text-center p-3 bg-blue-50 rounded-lg">
+                               <div className="text-sm font-bold text-blue-700">
+                                 {callCenter.businessType === 'call-center' && '🏢 Call Center'}
+                                 {callCenter.businessType === 'voip-reseller' && '📞 VoIP Reseller'}
+                                 {callCenter.businessType === 'data-vendor' && '📄 Data Vendor'}
+                                 {callCenter.businessType === 'workspace-rental' && '🏢 Workspace Rental'}
+                                 {callCenter.businessType === 'individual' && '👤 Individual'}
+                               </div>
+                               <div className="text-xs text-blue-600 uppercase tracking-wide">Business Type</div>
+                             </div>
+                           ) : callCenter.value ? (
                              <div className="text-center p-3 bg-green-50 rounded-lg">
                                <div className="text-lg font-bold text-green-600">
                                  ${callCenter.value.toLocaleString()}
@@ -1397,7 +1746,7 @@ ${index + 1}. ${cc.name}
                                  {callCenter.currency}
                                </div>
                              </div>
-                           )}
+                           ) : null}
                          </div>
 
                          {/* Contact Information */}
@@ -1408,14 +1757,14 @@ ${index + 1}. ${cc.name}
                                  <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Phone</div>
                                  <div className="text-sm font-mono text-gray-900">{callCenter.phones[0]}</div>
                                </div>
-                               {callCenter.phone_infos && callCenter.phone_infos[0] && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
+                               {callCenter.phone_infos && callCenter.phone_infos.length > 0 && callCenter.phone_infos[0].is_mobile && callCenter.phone_infos[0].whatsapp_confidence >= 0.7 && (
                                  <Button
                                    asChild
                                    size="sm"
                                    className="bg-green-600 hover:bg-green-700 text-white"
                                  >
                                    <a
-                                     href={PhoneDetectionService.getWhatsAppLink(callCenter.phones[0])}
+                                     href={PhoneDetectionService.getWhatsAppLink(callCenter.phone_infos[0].phone_norm)}
                                      target="_blank"
                                      rel="noopener noreferrer"
                                    >
@@ -1465,9 +1814,27 @@ ${index + 1}. ${cc.name}
                            </div>
                          )}
 
+                         {/* Calling Destinations */}
+                         {callCenter.destinations && callCenter.destinations.length > 0 && (
+                           <div className="mb-4">
+                             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">🎯 Calling Destinations</div>
+                             <div className="flex flex-wrap gap-2">
+                               {callCenter.destinations.map((destination, index) => (
+                                 <Badge key={index} variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
+                                   🌍 {destination}
+                                 </Badge>
+                               ))}
+                             </div>
+                           </div>
+                         )}
+
+
                          {/* Action Buttons */}
                          <div className="flex gap-2 pt-4 border-t border-gray-100">
-                           <Button variant="outline" size="sm" className="flex-1" onClick={() => handleOpenCallLog(callCenter)}>
+                           <Button
+                             className="inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 transform hover:scale-[1.02] active:scale-[0.98] border-2 border-slate-200 bg-white/50 backdrop-blur-sm text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:shadow-md h-8 rounded-lg px-4 py-1.5 text-xs flex-1"
+                             onClick={() => handleOpenCallLog(callCenter)}
+                           >
                              <Phone className="w-4 h-4 mr-2" />
                              Log Call
                            </Button>
@@ -1478,7 +1845,7 @@ ${index + 1}. ${cc.name}
                            <Button
                              variant="outline"
                              size="sm"
-                             onClick={() => onDelete(callCenter.id.toString())}
+                             onClick={() => callCenter.id && onDelete(callCenter.id.toString())}
                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
                            >
                              <Trash2 className="w-4 h-4" />
@@ -1486,7 +1853,8 @@ ${index + 1}. ${cc.name}
                          </div>
                        </CardContent>
                      </Card>
-                  ))}
+                     );
+                   })}
                 </div>
               )}
             </>
@@ -1543,20 +1911,119 @@ ${index + 1}. ${cc.name}
           setShowDetailModal(false);
           setSelectedCallCenter(null);
         }}
-        onUpdate={handleUpdateCallCenter}
+        onCallCenterUpdate={handleUpdateCallCenter}
+        onCallLogUpdate={refreshDispositionForCallCenter}
+        onSummaryUpdate={async (callCenterId: string, summary: string) => {
+          // Handle summary update separately - call API to update just the summary
+          try {
+            const response = await fetch(`/api/external-crm/call-centers/${callCenterId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                summary: summary.trim(),
+                updatedAt: new Date().toISOString()
+              })
+            });
+
+            if (response.ok) {
+              // Update local state
+              const updatedCallCenter = callCenters.find(cc => cc.id === callCenterId);
+              if (updatedCallCenter) {
+                const updated = { ...updatedCallCenter, summary: summary.trim() };
+                onEdit(updated);
+              }
+              console.log('✅ [SUMMARY] Summary updated successfully');
+            } else {
+              console.error('❌ [SUMMARY] Failed to update summary');
+              alert('Failed to save summary');
+            }
+          } catch (error) {
+            console.error('❌ [SUMMARY] Error updating summary:', error);
+            alert('Error saving summary');
+          }
+        }}
         onDelete={handleDeleteCallCenterFromModal}
       />
 
       {/* Call Log Dialog */}
       <Dialog open={showCallLogDialog} onOpenChange={setShowCallLogDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>
-              Log Call - {currentCallCenter?.name}
-            </DialogTitle>
+            <DialogTitle>Log Call - {currentCallCenter?.name}</DialogTitle>
           </DialogHeader>
-
           <div className="space-y-6">
+            {/* Call History Section */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Phone className="w-5 h-5" />
+                  Call History (0)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-6 text-gray-500">
+                  <MessageSquare className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                  <p className="text-sm">No previous calls logged</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Call Date and Time */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="callDate">Call Date (mm/dd/yyyy)</Label>
+                <Input
+                  type="text"
+                  id="callDate"
+                  value={callLogData.callDate || new Date().toLocaleDateString('en-US')}
+                  onChange={(e) => setCallLogData(prev => ({ ...prev, callDate: e.target.value }))}
+                  placeholder="mm/dd/yyyy"
+                  pattern="[0-9]{1,2}/[0-9]{1,2}/[0-9]{4}"
+                  title="Please enter date in mm/dd/yyyy format"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Leave empty to use today's date ({new Date().toLocaleDateString('en-US')})
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="callTime">Call Time (HH:MM)</Label>
+                <Input
+                  type="time"
+                  id="callTime"
+                  value={callLogData.callTime || new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })}
+                  onChange={(e) => setCallLogData(prev => ({ ...prev, callTime: e.target.value }))}
+                  title="Please enter time in HH:MM format (24-hour)"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Leave empty to use current time ({new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })})
+                </p>
+              </div>
+            </div>
+
+            {/* Phone Number Selection */}
+            {currentCallCenter && currentCallCenter.phones && currentCallCenter.phones.length > 0 && (
+              <div>
+                <Label htmlFor="phone_used">Phone Number Called *</Label>
+                <Select value={callLogData.phone_used} onValueChange={(value) =>
+                  setCallLogData(prev => ({ ...prev, phone_used: value }))
+                }>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select phone number that was called" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {currentCallCenter.phones.map((phone, index) => (
+                      <SelectItem key={index} value={phone}>
+                        {phone} {index === 0 ? '(Primary)' : `(${index + 1})`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Select which phone number was used for this call
+                </p>
+              </div>
+            )}
+
             {/* Call Outcome */}
             <div>
               <Label htmlFor="outcome">Call Outcome *</Label>
@@ -1571,28 +2038,147 @@ ${index + 1}. ${cc.name}
                   <SelectItem value="no-answer">No Answer</SelectItem>
                   <SelectItem value="busy">Busy</SelectItem>
                   <SelectItem value="voicemail">Voicemail</SelectItem>
+                  <SelectItem value="answering-machine">Answering Machine</SelectItem>
                   <SelectItem value="wrong-number">Wrong Number</SelectItem>
                   <SelectItem value="callback-requested">Callback Requested</SelectItem>
-                  <SelectItem value="answering-machine">Answering Machine</SelectItem>
                   <SelectItem value="rejected">Rejected</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
+            {/* Call Disposition - Only show for answered calls */}
+            {callLogData.outcome === 'answered' && (
+              <div>
+                <Label htmlFor="disposition">Call Disposition *</Label>
+                <Select value={callLogData.disposition} onValueChange={(value) =>
+                  setCallLogData(prev => ({ ...prev, disposition: value }))
+                }>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select disposition" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {/* Positive or Progressing Outcomes */}
+                    <SelectItem value="interested">INT — Intéressé (wants solution/more info)</SelectItem>
+                    <SelectItem value="quote_requested">REQ — Demande devis (asked for quote)</SelectItem>
+                    <SelectItem value="callback">CALLBK — Rappeler (callback requested)</SelectItem>
+                    <SelectItem value="trial_requested">TRIAL — Veut test/démo (wants trial/demo)</SelectItem>
+                    <SelectItem value="technical_contact">TECH — Contacter la technique (wants technical contact)</SelectItem>
+                    <SelectItem value="meeting_scheduled">MEET — RDV pris/visite (meeting scheduled)</SelectItem>
+                    <SelectItem value="satisfied">SAT — Je suis satisfait (satisfied customer)</SelectItem>
+
+                    {/* Neutral / Temporary Blockers */}
+                    <SelectItem value="no_budget">NOQ — Pas de budget (interested but no budget)</SelectItem>
+                    <SelectItem value="competitor">COMP — Déjà avec concurrents (uses competitor)</SelectItem>
+                    <SelectItem value="not_with_them">NWT — Not with them (person no longer there)</SelectItem>
+
+                    {/* Operational Issues */}
+                    <SelectItem value="wrong_number">WRONG — Mauvais numéro (wrong number)</SelectItem>
+                    <SelectItem value="duplicate">DUP — Duplicate/déjà contacté (already contacted)</SelectItem>
+
+                    {/* Hard Negatives */}
+                    <SelectItem value="spam">SPAM — Ne veut pas être contacté (do not contact)</SelectItem>
+                    <SelectItem value="dead">DEAD — Prospect Dead/Toxic/Manipulative/Rude</SelectItem>
+                    <SelectItem value="noc">NOC — Not a Call Center</SelectItem>
+                    <SelectItem value="closed">CLOSED — Company Closed</SelectItem>
+                    <SelectItem value="out">OUT — Out of Target</SelectItem>
+                    <SelectItem value="abusive">ABUSIVE — Treated you badly (Insults/Aggression)</SelectItem>
+
+                    {/* Uncertain / No Clear Answer */}
+                    <SelectItem value="nc">NC — Non convaincu/Not convinced</SelectItem>
+                    <SelectItem value="busy">BUSY — Occupied/Call me later (no specific time)</SelectItem>
+                    <SelectItem value="noanswer">NOANSWER — No Answer After Engagement</SelectItem>
+                    <SelectItem value="inp">INP — I'm not the person who handles this (he could be just HR or assistant...)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {/* Additional Fields Based on Disposition */}
+            {callLogData.disposition === 'callback' && (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <Label htmlFor="callbackDate">Callback Date & Time</Label>
+                  <Input
+                    id="callbackDate"
+                    type="datetime-local"
+                    value={callLogData.callbackDate || ''}
+                    onChange={(e) => setCallLogData(prev => ({ ...prev, callbackDate: e.target.value }))}
+                  />
+                </div>
+              </div>
+            )}
+
+            {callLogData.disposition === 'meeting_scheduled' && (
+              <div className="mt-3 space-y-3">
+                <div>
+                  <Label htmlFor="meetingDate">Meeting Date & Time</Label>
+                  <Input
+                    id="meetingDate"
+                    type="datetime-local"
+                    value={callLogData.meetingDate || ''}
+                    onChange={(e) => setCallLogData(prev => ({ ...prev, meetingDate: e.target.value }))}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="meetingLocation">Meeting Location</Label>
+                  <Input
+                    id="meetingLocation"
+                    value={callLogData.meetingLocation || ''}
+                    onChange={(e) => setCallLogData(prev => ({ ...prev, meetingLocation: e.target.value }))}
+                    placeholder="Location or link"
+                  />
+                </div>
+              </div>
+            )}
+
+            {callLogData.disposition === 'competitor' && (
+              <div className="mt-3">
+                <Label htmlFor="competitorName">Competitor Name</Label>
+                <Input
+                  id="competitorName"
+                  value={callLogData.competitorName || ''}
+                  onChange={(e) => setCallLogData(prev => ({ ...prev, competitorName: e.target.value }))}
+                  placeholder="Competitor name"
+                />
+              </div>
+            )}
+
             {/* Duration */}
             <div>
-              <Label htmlFor="duration">Duration (minutes)</Label>
-              <input
-                type="number"
+              <Label htmlFor="duration">Duration (mm:ss format)</Label>
+              <Input
                 id="duration"
-                value={callLogData.duration}
-                onChange={(e) =>
-                  setCallLogData(prev => ({ ...prev, duration: parseInt(e.target.value) || 0 }))
-                }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                min="0"
-                placeholder="0"
+                type="text"
+                value={callLogData.durationInput || (callLogData.duration ? formatDuration(callLogData.duration) : '')}
+                onChange={(e) => {
+                  const inputValue = e.target.value;
+                  setCallLogData(prev => ({ ...prev, durationInput: inputValue }));
+                }}
+                onBlur={(e) => {
+                  // On blur, parse the input and update duration
+                  const inputValue = callLogData.durationInput;
+                  if (inputValue && inputValue !== '') {
+                    const seconds = parseDuration(inputValue);
+                    setCallLogData(prev => ({
+                      ...prev,
+                      duration: seconds,
+                      durationInput: seconds > 0 ? formatDuration(seconds) : ''
+                    }));
+                  } else {
+                    setCallLogData(prev => ({
+                      ...prev,
+                      duration: 0,
+                      durationInput: ''
+                    }));
+                  }
+                }}
+                placeholder="Enter duration in mm:ss format (e.g., 4:05 for 4 minutes 5 seconds)"
               />
+              {callLogData.duration > 0 && (
+                <div className="text-xs text-gray-500 mt-1">
+                  Equivalent: {callLogData.duration} seconds
+                </div>
+              )}
             </div>
 
             {/* Notes */}
@@ -1609,139 +2195,48 @@ ${index + 1}. ${cc.name}
               />
             </div>
 
-            {/* Follow Up */}
-            <div>
-              <Label htmlFor="followUp">Follow Up Required</Label>
-              <Select value={callLogData.followUp} onValueChange={(value) =>
-                setCallLogData(prev => ({ ...prev, followUp: value }))
-              }>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select follow up" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No follow up needed</SelectItem>
-                  <SelectItem value="callback">Schedule callback</SelectItem>
-                  <SelectItem value="email">Send email</SelectItem>
-                  <SelectItem value="meeting">Schedule meeting</SelectItem>
-                  <SelectItem value="send-materials">Send materials</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Steps Section */}
-            <div className="border-t pt-4">
-              <div className="flex items-center justify-between mb-4">
-                <Label className="text-base font-medium">Steps to Add to Calendar</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={handleAddStep}
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Step
-                </Button>
-              </div>
-
-              {/* Step Date */}
-              <div className="mb-4">
-                <Label htmlFor="stepDate">Step Date</Label>
-                <input
-                  type="date"
-                  id="stepDate"
-                  value={callLogData.stepDate}
-                  onChange={(e) =>
-                    setCallLogData(prev => ({ ...prev, stepDate: e.target.value }))
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  title="Select date for calendar steps"
-                />
-              </div>
-
-              {/* Steps List */}
-              <div className="space-y-3">
-                {callLogData.steps.map((step, index) => (
-                  <div key={index} className="p-4 border rounded-lg bg-gray-50">
-                    <div className="flex items-start justify-between mb-3">
-                      <h4 className="font-medium">Step {index + 1}</h4>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveStep(index)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        Remove
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor={`step-title-${index}`}>Title *</Label>
-                        <input
-                          type="text"
-                          id={`step-title-${index}`}
-                          value={step.title}
-                          onChange={(e) => handleUpdateStep(index, 'title', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                          placeholder="Step title"
-                        />
-                      </div>
-
-                      <div>
-                        <Label htmlFor={`step-priority-${index}`}>Priority</Label>
-                        <Select
-                          value={step.priority}
-                          onValueChange={(value) => handleUpdateStep(index, 'priority', value)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">Low</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="high">High</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="mt-3">
-                      <Label htmlFor={`step-description-${index}`}>Description</Label>
-                      <Textarea
-                        id={`step-description-${index}`}
-                        value={step.description}
-                        onChange={(e) => handleUpdateStep(index, 'description', e.target.value)}
-                        placeholder="Step description..."
-                        rows={2}
-                      />
-                    </div>
+            {/* Error Message */}
+            {saveError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+                <div className="flex items-center">
+                  <div className="text-red-600">
+                    <AlertTriangle className="w-4 h-4 mr-2" />
                   </div>
-                ))}
-
-                {callLogData.steps.length === 0 && (
-                  <div className="text-center py-6 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg">
-                    <Calendar className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                    <p>No steps added yet</p>
-                    <p className="text-sm">Steps will be added to your calendar</p>
-                  </div>
-                )}
+                  <p className="text-sm text-red-700">{saveError}</p>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex justify-end space-x-2 pt-4 border-t">
               <Button
                 variant="outline"
-                onClick={() => setShowCallLogDialog(false)}
+                onClick={() => {
+                  setShowCallLogDialog(false);
+                  setSaveError('');
+                }}
+                disabled={isSavingCallLog}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSaveCallLog}
-                disabled={!callLogData.outcome || !callLogData.notes}
+                disabled={
+                  !callLogData.outcome ||
+                  !callLogData.notes ||
+                  (currentCallCenter?.phones && currentCallCenter.phones.length > 0 && !callLogData.phone_used) ||
+                  (callLogData.outcome === 'answered' && !callLogData.disposition) ||
+                  isSavingCallLog
+                }
               >
-                Save Call Log & Add Steps
+                {isSavingCallLog ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  'Save Call Log'
+                )}
               </Button>
             </div>
           </div>

@@ -1,0 +1,60 @@
+[
+  {
+    "name": "Example Call Center Name",
+    "country": "Morocco",
+    "city": "Casablanca",
+    "positions": 10,
+    "businessType": "call-center",
+    "phones": ["+212522123456", "0666123456"],
+    "emails": ["contact@example.ma", "hr@example.ma"],
+    "website": "https://example.ma",
+    "address": "123 Business Street, Casablanca 20000",
+    "source": "linkedin",
+    "tags": ["linkedin", "b2b", "high-potential"],
+    "notes": "Description of the prospect and any relevant information",
+    "status": "pending",
+    "priority": "high",
+    "contactAttempts": 0,
+    "destinations": ["USA", "France"],
+    "dnc": false,
+    "dnd": false,
+    "dp": false,
+    "dncDescription": "",
+    "dndDescription": "",
+    "dpDescription": "",
+    "contacts": [
+      {
+        "id": "contact_001",
+        "name": "John Doe",
+        "position": "HR Manager",
+        "phone": "+212522123456",
+        "email": "john@example.ma",
+        "notes": "Primary contact for recruitment"
+      }
+    ],
+    "steps": [
+      {
+        "id": "step_001",
+        "title": "Initial Outreach",
+        "description": "Send introductory email",
+        "date": "2025-11-25T10:00:00Z",
+        "completed": false,
+        "priority": "high"
+      }
+    ],
+    "callHistory": [
+      {
+        "id": "call_001",
+        "date": "2025-11-24T14:30:00Z",
+        "duration": 10,
+        "outcome": "Voicemail",
+        "notes": "Left message, will follow up",
+        "followUp": "Call back in 2 days",
+        "disposition": "callback",
+        "phone_used": "+212522123456",
+        "attempts_count": 1
+      }
+    ],
+    "lastContacted": "2025-11-24T14:30:00Z"
+  }
+]

@@ -25,6 +25,7 @@ export function BulkImport({ onImport }: BulkImportProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [progressText, setProgressText] = useState('');
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [fileType, setFileType] = useState<'csv' | 'json' | null>(null);
@@ -46,7 +47,6 @@ export function BulkImport({ onImport }: BulkImportProps) {
                    selectedFile.name.endsWith('.xls') ||
                    selectedFile.type.includes('csv') ||
                    selectedFile.type.includes('excel');
-
       const isJSON = selectedFile.name.endsWith('.json') ||
                     selectedFile.type === 'application/json';
 
@@ -67,44 +67,79 @@ export function BulkImport({ onImport }: BulkImportProps) {
       if (!Array.isArray(data)) return [];
 
       return data.map((item, index) => {
-        // Find the key that contains the call center name (not standard fields)
-        const standardFields = ['Country', 'Status', 'City', 'Number of Positions', 'Phone Numbers', 'Commentaire', 'Address'];
-        const nameKey = Object.keys(item).find(key => !standardFields.includes(key));
+        // Check if this is the standard CallCenter format (has 'name' field)
+        if (item.name && typeof item.name === 'string') {
+          // Standard CallCenter format - use fields directly
+          const callCenter: any = {
+            name: item.name,
+            country: item.country || 'Morocco',
+            city: item.city || '',
+            positions: item.positions || 0,
+            status: item.status || 'New',
+            phones: Array.isArray(item.phones) ? item.phones : [],
+            emails: Array.isArray(item.emails) ? item.emails : [],
+            website: item.website || '',
+            tags: Array.isArray(item.tags) ? item.tags : [],
+            notes: item.notes || '',
+            address: item.address || '',
+            createdAt: item.createdAt || new Date().toISOString(),
+            updatedAt: item.updatedAt || new Date().toISOString(),
+            lastContacted: item.lastContacted || null,
+          };
 
-        const name = nameKey ? item[nameKey] : '';
-        const address = nameKey || '';
+          // Validate country
+          const validCountries = ['Morocco', 'Tunisia', 'Senegal', 'Ivory Coast', 'Guinea', 'Cameroon'];
+          if (!validCountries.includes(callCenter.country)) {
+            callCenter.country = 'Morocco';
+          }
 
-        // Map the JSON structure to our CallCenter format
-        const callCenter: any = {
-          name: name,
-          country: item.Country || 'Morocco',
-          city: item.City || '',
-          positions: parseInt(item['Number of Positions']) || 0,
-          status: item.Status || 'Cold',
-          phones: item['Phone Numbers'] ? (typeof item['Phone Numbers'] === 'string' ? item['Phone Numbers'].split(',').map((p: string) => p.trim()).filter((p: string) => p) : []) : [],
-          emails: [], // JSON doesn't have emails
-          website: '',
-          tags: [],
-          notes: item.Commentaire || '',
-          address: item.Address || address,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          lastContacted: null,
-        };
+          // Validate status
+          const validStatuses = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Closed-Won', 'Closed-Lost', 'On-Hold'];
+          if (!validStatuses.includes(callCenter.status)) {
+            callCenter.status = 'New';
+          }
 
-        // Validate country
-        const validCountries = ['Morocco', 'Tunisia', 'Senegal', 'Ivory Coast', 'Guinea', 'Cameroon'];
-        if (!validCountries.includes(callCenter.country)) {
-          callCenter.country = 'Morocco';
+          return callCenter;
+        } else {
+          // Legacy format - find name in non-standard field
+          const standardFields = ['Country', 'Status', 'City', 'Number of Positions', 'Phone Numbers', 'Commentaire', 'Address'];
+          const nameKey = Object.keys(item).find(key => !standardFields.includes(key));
+
+          const name = nameKey ? item[nameKey] : '';
+          const address = nameKey || '';
+
+          // Map the legacy JSON structure to our CallCenter format
+          const callCenter: any = {
+            name: name,
+            country: item.Country || 'Morocco',
+            city: item.City || '',
+            positions: parseInt(item['Number of Positions']) || 0,
+            status: item.Status === 'Cold' ? 'New' : (item.Status || 'New'),
+            phones: item['Phone Numbers'] ? (typeof item['Phone Numbers'] === 'string' ? [item['Phone Numbers'].trim()].filter((p: string) => p) : []) : [],
+            emails: [], // JSON doesn't have emails
+            website: '',
+            tags: [],
+            notes: item.Commentaire || '',
+            address: item.Address || address,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            lastContacted: null,
+          };
+
+          // Validate country
+          const validCountries = ['Morocco', 'Tunisia', 'Senegal', 'Ivory Coast', 'Guinea', 'Cameroon'];
+          if (!validCountries.includes(callCenter.country)) {
+            callCenter.country = 'Morocco';
+          }
+
+          // Validate status
+          const validStatuses = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Closed-Won', 'Closed-Lost', 'On-Hold'];
+          if (!validStatuses.includes(callCenter.status)) {
+            callCenter.status = 'New';
+          }
+
+          return callCenter;
         }
-
-        // Validate status
-        const validStatuses = ['New', 'Contacted', 'Qualified', 'Proposal', 'Negotiation', 'Closed-Won', 'Closed-Lost', 'On-Hold'];
-        if (!validStatuses.includes(callCenter.status)) {
-          callCenter.status = 'New';
-        }
-
-        return callCenter;
       });
     } catch (error) {
       console.error('JSON parsing error:', error);
@@ -186,15 +221,18 @@ export function BulkImport({ onImport }: BulkImportProps) {
 
     setUploading(true);
     setProgress(0);
+    setProgressText('Starting import...');
     setResult(null);
 
     try {
+      setProgressText('Reading file...');
       const text = await file.text();
       console.log('File content preview:', text.substring(0, 500));
       setProgress(25);
 
       let callCenters: any[] = [];
 
+      setProgressText('Parsing data...');
       if (fileType === 'json') {
         callCenters = parseJSON(text);
         console.log('Parsed JSON call centers:', callCenters.length, callCenters.slice(0, 3));
@@ -202,6 +240,7 @@ export function BulkImport({ onImport }: BulkImportProps) {
         callCenters = parseCSV(text);
       }
 
+      setProgressText('Validating data...');
       setProgress(50);
 
       if (callCenters.length === 0) {
@@ -228,11 +267,14 @@ export function BulkImport({ onImport }: BulkImportProps) {
 
       console.log('Valid call centers:', validCallCenters.length, validCallCenters.slice(0, 3));
 
+      setProgressText(`Preparing to import ${validCallCenters.length} call centers...`);
       setProgress(75);
 
       if (validCallCenters.length > 0) {
+        setProgressText('Importing data to database...');
         await onImport(validCallCenters);
         setProgress(100);
+        setProgressText('Import completed successfully!');
 
         setResult({
           success: true,
@@ -321,8 +363,11 @@ export function BulkImport({ onImport }: BulkImportProps) {
 
               {uploading && (
                 <div className="space-y-2">
-                  <Progress value={progress} />
-                  <p className="text-sm text-gray-600">Processing file...</p>
+                  <Progress value={progress} className="w-full" />
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">{progressText || 'Processing file...'}</p>
+                    <p className="text-sm text-gray-500">{Math.round(progress)}%</p>
+                  </div>
                 </div>
               )}
             </CardContent>

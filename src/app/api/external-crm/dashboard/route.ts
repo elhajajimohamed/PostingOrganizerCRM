@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, getDocs, query, where, orderBy, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 
 interface DashboardStats {
   totalCallCenters: number;
@@ -18,15 +17,37 @@ interface DashboardStats {
     recentValue: number;
     avgDealSize: number;
   };
+  totalTopups: number;
+  recentTopups: number;
 }
 
 export async function GET() {
   try {
+
     console.log('📊 [DASHBOARD] Fetching real dashboard statistics from Firebase...');
 
     // Get all call centers
-    const callCentersRef = collection(db, 'callCenters');
-    const callCentersSnapshot = await getDocs(callCentersRef);
+    const callCentersSnapshot = await adminDb.collection('callCenters').get();
+
+    // Get all top-ups
+    const topupsSnapshot = await adminDb.collection('clientTopups').get();
+
+    const topups = topupsSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        clientId: data.clientId || '',
+        clientName: data.clientName || '',
+        callCenterName: data.callCenterName || '',
+        amountEUR: data.amountEUR || 0,
+        paymentMethod: data.paymentMethod || '',
+        date: data.date?.toDate?.()?.toISOString() || data.date || '',
+        country: data.country || '',
+        notes: data.notes || '',
+      };
+    });
+
+    console.log(`📊 [DASHBOARD] Found ${topups.length} top-ups in database`);
 
     const callCenters = callCentersSnapshot.docs.map(doc => {
       const data = doc.data();
@@ -78,6 +99,22 @@ export async function GET() {
     const wonValue = callCenters.filter(cc => cc.status === 'Closed-Won')
       .reduce((sum, cc) => sum + (cc.value || 0), 0);
 
+    // Top-up calculations
+    console.log('📊 [DASHBOARD] Calculating top-up statistics...');
+    const totalTopups = topups.reduce((sum, topup) => sum + topup.amountEUR, 0);
+    console.log('📊 [DASHBOARD] Total top-ups calculated:', totalTopups);
+
+    // Performance metrics (last 30 days) - moved up to fix variable usage
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    console.log('📊 [DASHBOARD] Thirty days ago date:', thirtyDaysAgo.toISOString());
+
+    const recentTopups = topups.filter(topup => {
+      const topupDate = new Date(topup.date);
+      return topupDate >= thirtyDaysAgo;
+    }).reduce((sum, topup) => sum + topup.amountEUR, 0);
+    console.log('📊 [DASHBOARD] Recent top-ups calculated:', recentTopups);
+
     // Average positions
     const avgPositions = totalCallCenters > 0
       ? Math.round(callCenters.reduce((sum, cc) => sum + (cc.positions || 0), 0) / totalCallCenters)
@@ -100,10 +137,6 @@ export async function GET() {
     const totalLeads = callCenters.filter(cc => cc.status !== 'Closed-Lost').length;
     const wonDeals = callCenters.filter(cc => cc.status === 'Closed-Won').length;
     const conversionRate = totalLeads > 0 ? Math.round((wonDeals / totalLeads) * 100) : 0;
-
-    // Performance metrics (last 30 days)
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const recentCallCenters = callCenters.filter(cc => {
       const createdAt = new Date(cc.createdAt);
@@ -130,7 +163,10 @@ export async function GET() {
         recentWins,
         recentValue,
         avgDealSize
-      }
+      },
+      // Add topup financial data
+      totalTopups,
+      recentTopups
     };
 
     console.log('📊 [DASHBOARD] Calculated statistics:', stats);

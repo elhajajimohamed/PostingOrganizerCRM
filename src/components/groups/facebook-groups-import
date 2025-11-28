@@ -1,0 +1,615 @@
+'use client';
+
+import { useState, useRef } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { 
+  Upload, 
+  FileText, 
+  AlertCircle, 
+  CheckCircle, 
+  Users, 
+  Globe, 
+  Link,
+  X,
+  Download,
+  Eye,
+  Loader2
+} from 'lucide-react';
+import { AccountService } from '@/lib/services/account-service';
+
+interface FacebookGroup {
+  name: string;
+  url: string;
+  memberCount?: number;
+  language?: string;
+  tags?: string[];
+  warningCount?: number;
+  accountId?: string;
+}
+
+interface Account {
+  id: string;
+  name: string;
+  accountId: string;
+  browser?: string;
+  status: string;
+}
+
+interface ImportResult {
+  success: boolean;
+  totalImported: number;
+  totalSkipped: number;
+  totalErrors: number;
+  errors: string[];
+  details: {
+    groupName: string;
+    action: 'imported' | 'skipped' | 'error';
+    message?: string;
+  }[];
+}
+
+export default function FacebookGroupsImport() {
+  const [file, setFile] = useState<File | null>(null);
+  const [groups, setGroups] = useState<FacebookGroup[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [targetAccountId, setTargetAccountId] = useState<string>('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [error, setError] = useState<string>('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load accounts on component mount
+  useState(() => {
+    loadAccounts();
+  });
+
+  const loadAccounts = async () => {
+    try {
+      const accountsData = await AccountService.getAllAccounts();
+      setAccounts(accountsData);
+    } catch (error) {
+      console.error('Error loading accounts:', error);
+    }
+  };
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (!selectedFile) return;
+
+    // Validate file type
+    if (!selectedFile.name.endsWith('.json')) {
+      setError('Please select a JSON file');
+      return;
+    }
+
+    // Validate file size (max 10MB)
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB');
+      return;
+    }
+
+    setFile(selectedFile);
+    setError('');
+
+    // Read and parse the file
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const jsonData = JSON.parse(content);
+        
+        // Validate that it's an array
+        if (!Array.isArray(jsonData)) {
+          setError('JSON file must contain an array of group objects');
+          return;
+        }
+
+        // Validate each group object
+        const validGroups: FacebookGroup[] = [];
+        const validationErrors: string[] = [];
+
+        jsonData.forEach((group, index) => {
+          if (typeof group !== 'object' || group === null) {
+            validationErrors.push(`Item ${index + 1}: Must be an object`);
+            return;
+          }
+
+          if (!group.name || !group.url) {
+            validationErrors.push(`Item ${index + 1}: Name and URL are required`);
+            return;
+          }
+
+          if (typeof group.name !== 'string') {
+            validationErrors.push(`Item ${index + 1}: Name must be a string`);
+            return;
+          }
+
+          if (typeof group.url !== 'string') {
+            validationErrors.push(`Item ${index + 1}: URL must be a string`);
+            return;
+          }
+
+          validGroups.push({
+            name: group.name,
+            url: group.url,
+            memberCount: group.memberCount ? parseInt(group.memberCount) : undefined,
+            language: group.language,
+            tags: Array.isArray(group.tags) ? group.tags : undefined,
+            warningCount: group.warningCount ? parseInt(group.warningCount) : 0,
+            accountId: group.accountId
+          });
+        });
+
+        if (validationErrors.length > 0) {
+          setError(`Validation errors:\n${validationErrors.join('\n')}`);
+          return;
+        }
+
+        setGroups(validGroups);
+        setShowPreview(true);
+      } catch (error) {
+        setError('Invalid JSON file format');
+      }
+    };
+
+    reader.readAsText(selectedFile);
+  };
+
+  const handleImport = async () => {
+    if (groups.length === 0) {
+      setError('No groups to import');
+      return;
+    }
+
+    setIsImporting(true);
+    setError('');
+
+    try {
+      const response = await fetch('/api/facebook-groups/import', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          groups,
+          targetAccountId: targetAccountId || undefined
+        }),
+      });
+
+      const result = await response.json();
+      setImportResult(result);
+      setShowResults(true);
+
+      // If successful, clear the form
+      if (result.success) {
+        setFile(null);
+        setGroups([]);
+        setTargetAccountId('');
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    } catch (error) {
+      setError('Failed to import groups. Please try again.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const downloadSample = () => {
+    const sampleData = [
+      {
+        "name": "Entrepreneurs Network Casablanca",
+        "url": "https://www.facebook.com/groups/entrepreneurs.casablanca",
+        "memberCount": 15000,
+        "language": "fr",
+        "tags": ["business", "entrepreneurship", "casablanca"],
+        "warningCount": 0
+      },
+      {
+        "name": "Morocco Digital Marketing Hub",
+        "url": "https://www.facebook.com/groups/morocco.digital.marketing",
+        "memberCount": 8500,
+        "language": "ar",
+        "tags": ["marketing", "digital", "morocco"],
+        "warningCount": 2
+      }
+    ];
+
+    const blob = new Blob([JSON.stringify(sampleData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'facebook-groups-sample.json';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const resetForm = () => {
+    setFile(null);
+    setGroups([]);
+    setTargetAccountId('');
+    setImportResult(null);
+    setError('');
+    setShowPreview(false);
+    setShowResults(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Import Facebook Groups</h2>
+          <p className="text-gray-600 mt-1">
+            Upload a JSON file containing Facebook groups to add them to your database
+          </p>
+        </div>
+        <Button onClick={downloadSample} variant="outline">
+          <Download className="w-4 h-4 mr-2" />
+          Download Sample
+        </Button>
+      </div>
+
+      {/* File Upload Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Upload className="w-5 h-5" />
+            Upload JSON File
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileUpload}
+              className="hidden"
+              id="file-upload"
+            />
+            <label htmlFor="file-upload" className="cursor-pointer">
+              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-lg font-medium text-gray-900 mb-2">
+                Choose JSON file or drag and drop
+              </p>
+              <p className="text-sm text-gray-500 mb-4">
+                Only JSON files, maximum 10MB
+              </p>
+              <Button variant="outline">
+                Select File
+              </Button>
+            </label>
+          </div>
+
+          {file && (
+            <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+              <FileText className="w-5 h-5 text-blue-600" />
+              <div className="flex-1">
+                <p className="font-medium text-blue-900">{file.name}</p>
+                <p className="text-sm text-blue-700">
+                  {(file.size / 1024).toFixed(1)} KB • {groups.length} groups found
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setFile(null);
+                  setGroups([]);
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = '';
+                  }
+                }}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
+          {error && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="whitespace-pre-line">
+                {error}
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Target Account Selection */}
+      {groups.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Account Assignment</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Target Facebook Account (Optional)
+                </label>
+                <Select value={targetAccountId} onValueChange={setTargetAccountId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select account for all groups..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No specific account</SelectItem>
+                    {accounts.map(account => (
+                      <SelectItem key={account.id} value={account.id}>
+                        <div className="flex items-center gap-2">
+                          <span>{account.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {account.browser || 'Default'}
+                          </Badge>
+                          <Badge 
+                            variant={account.status === 'active' ? 'default' : 'secondary'}
+                            className="text-xs"
+                          >
+                            {account.status}
+                          </Badge>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-gray-500 mt-1">
+                  If selected, all imported groups will be assigned to this account
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Action Buttons */}
+      {groups.length > 0 && (
+        <div className="flex gap-3">
+          <Button
+            onClick={() => setShowPreview(true)}
+            variant="outline"
+            disabled={isImporting}
+          >
+            <Eye className="w-4 h-4 mr-2" />
+            Preview Groups
+          </Button>
+          <Button
+            onClick={handleImport}
+            disabled={isImporting}
+            className="flex-1"
+          >
+            {isImporting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Users className="w-4 h-4 mr-2" />
+            )}
+            Import {groups.length} Groups
+          </Button>
+          <Button onClick={resetForm} variant="outline" disabled={isImporting}>
+            <X className="w-4 h-4 mr-2" />
+            Reset
+          </Button>
+        </div>
+      )}
+
+      {/* Preview Dialog */}
+      <Dialog open={showPreview} onOpenChange={setShowPreview}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Preview Groups ({groups.length})</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {groups.map((group, index) => (
+              <Card key={index} className="border border-gray-200">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <h3 className="font-semibold text-lg">{group.name}</h3>
+                        <Badge variant="outline">
+                          {group.language || 'unknown'}
+                        </Badge>
+                        {group.warningCount && group.warningCount > 0 && (
+                          <Badge variant="destructive">
+                            {group.warningCount} warnings
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Link className="w-4 h-4 text-gray-500" />
+                          <div>
+                            <p className="font-medium text-gray-700">URL</p>
+                            <p className="text-gray-600 truncate" title={group.url}>
+                              {group.url}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Users className="w-4 h-4 text-gray-500" />
+                          <div>
+                            <p className="font-medium text-gray-700">Members</p>
+                            <p className="text-gray-600">
+                              {group.memberCount?.toLocaleString() || 'Unknown'}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
+                          <Globe className="w-4 h-4 text-gray-500" />
+                          <div>
+                            <p className="font-medium text-gray-700">Tags</p>
+                            <p className="text-gray-600">
+                              {group.tags?.length ? group.tags.join(', ') : 'None'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {group.accountId && (
+                        <div className="mt-3 p-2 bg-blue-50 rounded text-sm">
+                          <span className="font-medium text-blue-800">
+                            Assigned Account: {accounts.find(a => a.id === group.accountId)?.name || 'Unknown'}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {targetAccountId && (
+                        <div className="mt-3 p-2 bg-green-50 rounded text-sm">
+                          <span className="font-medium text-green-800">
+                            Will be assigned to: {accounts.find(a => a.id === targetAccountId)?.name}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPreview(false)}>
+              Close Preview
+            </Button>
+            <Button onClick={handleImport} disabled={isImporting}>
+              {isImporting ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <Users className="w-4 h-4 mr-2" />
+              )}
+              Import Groups
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Results Dialog */}
+      <Dialog open={showResults} onOpenChange={setShowResults}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import Results</DialogTitle>
+          </DialogHeader>
+          
+          {importResult && (
+            <div className="space-y-4">
+              {/* Summary Stats */}
+              <div className="grid grid-cols-4 gap-4">
+                <Card className="text-center">
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-green-600">
+                      {importResult.totalImported}
+                    </div>
+                    <div className="text-sm text-gray-600">Imported</div>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-yellow-600">
+                      {importResult.totalSkipped}
+                    </div>
+                    <div className="text-sm text-gray-600">Skipped</div>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-red-600">
+                      {importResult.totalErrors}
+                    </div>
+                    <div className="text-sm text-gray-600">Errors</div>
+                  </CardContent>
+                </Card>
+                <Card className="text-center">
+                  <CardContent className="p-4">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {importResult.details.length}
+                    </div>
+                    <div className="text-sm text-gray-600">Total</div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Detailed Results */}
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {importResult.details.map((detail, index) => (
+                  <div
+                    key={index}
+                    className={`flex items-center gap-3 p-3 rounded border ${
+                      detail.action === 'imported' 
+                        ? 'bg-green-50 border-green-200' 
+                        : detail.action === 'skipped'
+                        ? 'bg-yellow-50 border-yellow-200'
+                        : 'bg-red-50 border-red-200'
+                    }`}
+                  >
+                    {detail.action === 'imported' && (
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                    )}
+                    {detail.action === 'skipped' && (
+                      <AlertCircle className="w-5 h-5 text-yellow-600" />
+                    )}
+                    {detail.action === 'error' && (
+                      <AlertCircle className="w-5 h-5 text-red-600" />
+                    )}
+                    <div className="flex-1">
+                      <p className="font-medium">{detail.groupName}</p>
+                      <p className="text-sm text-gray-600">{detail.message}</p>
+                    </div>
+                    <Badge 
+                      variant={
+                        detail.action === 'imported' ? 'default' :
+                        detail.action === 'skipped' ? 'secondary' : 'destructive'
+                      }
+                    >
+                      {detail.action}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+
+              {/* Overall Errors */}
+              {importResult.errors.length > 0 && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    <p className="font-medium mb-2">Errors encountered:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      {importResult.errors.map((error, index) => (
+                        <li key={index} className="text-sm">{error}</li>
+                      ))}
+                    </ul>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
+          )}
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowResults(false)}>
+              Close
+            </Button>
+            <Button onClick={resetForm}>
+              Import More Groups
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

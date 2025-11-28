@@ -446,7 +446,10 @@ export class SchedulingService {
           : `Template: ${combination.template.title}`,
         media_ids: combination.mediaIds,
         text_variant_id: combination.textVariant?.id,
-        notes: `Auto-generated schedule - ${combination.scheduledTime.toLocaleTimeString()}`,
+        notes: JSON.stringify({
+          title: `Auto-generated schedule - ${combination.scheduledTime.toLocaleTimeString()}`,
+          description: `Auto-generated schedule - ${combination.scheduledTime.toLocaleTimeString()}`
+        }),
         createdAt: new Date(),
       };
 
@@ -514,7 +517,10 @@ export class SchedulingService {
           content: combo.media
             ? `Template: ${combo.template.title} + Media: ${combo.media.name}`
             : `Template: ${combo.template.title}`,
-          notes: `Auto-generated schedule - ${combo.scheduledTime.toLocaleTimeString()}`,
+          notes: JSON.stringify({
+            title: `Auto-generated schedule - ${combo.scheduledTime.toLocaleTimeString()}`,
+            description: `Auto-generated schedule - ${combo.scheduledTime.toLocaleTimeString()}`
+          }),
         };
 
         const taskId = await TaskService.createTask(taskData);
@@ -1037,7 +1043,10 @@ export class SchedulingService {
           accountId: accounts[i % accounts.length].id!,
           templateId: templates[i % templates.length].id!,
           content: `🧪 TEST: ${templates[i % templates.length].title} (Test Task ${i + 1})`,
-          notes: `Test task generated at ${now.toLocaleTimeString()}`,
+          notes: JSON.stringify({
+            title: `🧪 TEST: ${templates[i % templates.length].title} (Test Task ${i + 1})`,
+            description: `Test task generated at ${now.toLocaleTimeString()}`
+          }),
         };
 
         const taskId = await TaskService.createTask(taskData);

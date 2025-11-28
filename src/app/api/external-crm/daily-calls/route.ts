@@ -15,8 +15,60 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
-          selectedForToday: result.selectedForToday,
-          alreadyCalled: result.alreadyCalled,
+          selectedForToday: result.selectedForToday.map(dailyCC => ({
+            ...dailyCC,
+            positions_count: dailyCC.callCenter.positions_count || dailyCC.callCenter.positions,
+            attempts_last_90_days: dailyCC.attempts_last_90_days,
+            attempts_last_15_days: dailyCC.attempts_last_15_days,
+            attempts_30d: dailyCC.attempts_30d,
+            computed_score: dailyCC.computed_score,
+            score_breakdown: dailyCC.score_breakdown,
+            badge_reason: dailyCC.badge_reason,
+            badge_type: dailyCC.badge_type,
+          })),
+          alreadyCalled: result.alreadyCalled.map(dailyCC => ({
+            ...dailyCC,
+            positions_count: dailyCC.callCenter.positions_count || dailyCC.callCenter.positions,
+            attempts_last_90_days: dailyCC.attempts_last_90_days,
+            attempts_last_15_days: dailyCC.attempts_last_15_days,
+            attempts_30d: dailyCC.attempts_30d,
+            computed_score: dailyCC.computed_score,
+            score_breakdown: dailyCC.score_breakdown,
+            badge_reason: dailyCC.badge_reason,
+            badge_type: dailyCC.badge_type,
+          })),
+          session: result.session,
+        },
+      });
+    } else if (action === 'regenerate') {
+      // Force regenerate today's call list (replace existing)
+      const result = await DailyCallsService.generateTodayCallList(true);
+
+      return NextResponse.json({
+        success: true,
+        data: {
+          selectedForToday: result.selectedForToday.map(dailyCC => ({
+            ...dailyCC,
+            positions_count: dailyCC.callCenter.positions_count || dailyCC.callCenter.positions,
+            attempts_last_90_days: dailyCC.attempts_last_90_days,
+            attempts_last_15_days: dailyCC.attempts_last_15_days,
+            attempts_30d: dailyCC.attempts_30d,
+            computed_score: dailyCC.computed_score,
+            score_breakdown: dailyCC.score_breakdown,
+            badge_reason: dailyCC.badge_reason,
+            badge_type: dailyCC.badge_type,
+          })),
+          alreadyCalled: result.alreadyCalled.map(dailyCC => ({
+            ...dailyCC,
+            positions_count: dailyCC.callCenter.positions_count || dailyCC.callCenter.positions,
+            attempts_last_90_days: dailyCC.attempts_last_90_days,
+            attempts_last_15_days: dailyCC.attempts_last_15_days,
+            attempts_30d: dailyCC.attempts_30d,
+            computed_score: dailyCC.computed_score,
+            score_breakdown: dailyCC.score_breakdown,
+            badge_reason: dailyCC.badge_reason,
+            badge_type: dailyCC.badge_type,
+          })),
           session: result.session,
         },
       });
@@ -43,8 +95,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: {
-          selectedForToday: result.selectedForToday,
-          alreadyCalled: result.alreadyCalled,
+          selectedForToday: result.selectedForToday.map(dailyCC => ({
+            ...dailyCC,
+            positions_count: dailyCC.callCenter.positions_count || dailyCC.callCenter.positions,
+            attempts_last_90_days: dailyCC.attempts_last_90_days,
+            attempts_last_15_days: dailyCC.attempts_last_15_days,
+            attempts_30d: dailyCC.attempts_30d,
+            computed_score: dailyCC.computed_score,
+            score_breakdown: dailyCC.score_breakdown,
+            badge_reason: dailyCC.badge_reason,
+            badge_type: dailyCC.badge_type,
+          })),
+          alreadyCalled: result.alreadyCalled.map(dailyCC => ({
+            ...dailyCC,
+            positions_count: dailyCC.callCenter.positions_count || dailyCC.callCenter.positions,
+            attempts_last_90_days: dailyCC.attempts_last_90_days,
+            attempts_last_15_days: dailyCC.attempts_last_15_days,
+            attempts_30d: dailyCC.attempts_30d,
+            computed_score: dailyCC.computed_score,
+            score_breakdown: dailyCC.score_breakdown,
+            badge_reason: dailyCC.badge_reason,
+            badge_type: dailyCC.badge_type,
+          })),
           session: result.session,
         },
       });

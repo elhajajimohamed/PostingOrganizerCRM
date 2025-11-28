@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Contact } from '@/lib/types/external-crm';
 import { ExternalCRMSubcollectionsService, CrossSectionContactsService } from '@/lib/services/external-crm-service';
 import { PhoneDetectionService } from '@/lib/services/phone-detection-service';
-import { Plus, Edit, Trash2, Phone, Mail, User, Calendar } from 'lucide-react';
+import { Plus, Edit, Trash2, Phone, Mail, User, Calendar, CheckSquare, Square } from 'lucide-react';
 
 interface ContactManagementProps {
   callCenterId?: string; // Made optional for global view
@@ -21,18 +21,19 @@ interface ContactManagementProps {
 }
 
 export function ContactManagement({ callCenterId, callCenterName, showGlobalView = false }: ContactManagementProps) {
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | undefined>();
-  const [formData, setFormData] = useState({
-    name: '',
-    position: '',
-    phone: '',
-    email: '',
-    notes: '',
-    lastContact: new Date().toISOString().split('T')[0]
-  });
+   const [contacts, setContacts] = useState<Contact[]>([]);
+   const [loading, setLoading] = useState(true);
+   const [showForm, setShowForm] = useState(false);
+   const [editingContact, setEditingContact] = useState<Contact | undefined>();
+   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
+   const [formData, setFormData] = useState({
+     name: '',
+     position: '',
+     phone: '',
+     email: '',
+     notes: '',
+     lastContact: new Date().toISOString().split('T')[0]
+   });
 
   useEffect(() => {
     loadContacts();
@@ -139,6 +140,52 @@ export function ContactManagement({ callCenterId, callCenterName, showGlobalView
     });
   };
 
+  const handleSelectContact = (contactId: string, selected: boolean) => {
+    const newSelected = new Set(selectedContacts);
+    if (selected) {
+      newSelected.add(contactId);
+    } else {
+      newSelected.delete(contactId);
+    }
+    setSelectedContacts(newSelected);
+  };
+
+  const handleSelectAll = (selected: boolean) => {
+    if (selected) {
+      setSelectedContacts(new Set(contacts.map(c => c.id)));
+    } else {
+      setSelectedContacts(new Set());
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedContacts.size === 0) return;
+
+    if (!confirm(`Are you sure you want to delete ${selectedContacts.size} contact(s)?`)) return;
+
+    try {
+      if (showGlobalView) {
+        alert('Please use the individual call center view to delete contacts.');
+        return;
+      }
+
+      if (!callCenterId) {
+        alert('Call center ID is required to delete contacts.');
+        return;
+      }
+
+      const deletePromises = Array.from(selectedContacts).map(contactId =>
+        ExternalCRMSubcollectionsService.deleteContact(callCenterId, contactId)
+      );
+
+      await Promise.all(deletePromises);
+      setSelectedContacts(new Set());
+      await loadContacts();
+    } catch (error) {
+      console.error('Error deleting selected contacts:', error);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -163,107 +210,119 @@ export function ContactManagement({ callCenterId, callCenterName, showGlobalView
             <User className="w-5 h-5 mr-2" />
             {showGlobalView ? 'Global Contact Management' : `Contact Management - ${callCenterName}`}
           </CardTitle>
-          <Dialog open={showForm} onOpenChange={(open) => {
-            if (!open) {
-              setShowForm(false);
-              setEditingContact(undefined);
-              resetForm();
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button onClick={() => setShowForm(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Contact
+          <div className="flex items-center space-x-2">
+            {selectedContacts.size > 0 && (
+              <Button
+                variant="destructive"
+                onClick={handleDeleteSelected}
+                className="mr-2"
+              >
+                <Trash2 className="w-4 h-4 mr-2" />
+                Delete Selected ({selectedContacts.size})
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingContact ? 'Edit Contact' : 'Add New Contact'}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Full Name *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                    required
-                  />
-                </div>
+            )}
+            <Dialog open={showForm} onOpenChange={(open) => {
+              if (!open) {
+                setShowForm(false);
+                setEditingContact(undefined);
+                resetForm();
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button onClick={() => setShowForm(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Contact
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>
+                    {editingContact ? 'Edit Contact' : 'Add New Contact'}
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div>
+                    <Label htmlFor="name">Full Name *</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                      required
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="position">Position/Title</Label>
-                  <Input
-                    id="position"
-                    value={formData.position}
-                    onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
-                    placeholder="CEO, HR Manager, etc."
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="position">Position/Title</Label>
+                    <Input
+                      id="position"
+                      value={formData.position}
+                      onChange={(e) => setFormData(prev => ({ ...prev, position: e.target.value }))}
+                      placeholder="CEO, HR Manager, etc."
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="phone">Phone Number</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                    placeholder="+212 6XX XXX XXX"
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      value={formData.phone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="+212 6XX XXX XXX"
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    placeholder="contact@company.com"
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="contact@company.com"
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="lastContact">Last Contact Date</Label>
-                  <Input
-                    id="lastContact"
-                    type="date"
-                    value={formData.lastContact}
-                    onChange={(e) => setFormData(prev => ({ ...prev, lastContact: e.target.value }))}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="lastContact">Last Contact Date</Label>
+                    <Input
+                      id="lastContact"
+                      type="date"
+                      value={formData.lastContact}
+                      onChange={(e) => setFormData(prev => ({ ...prev, lastContact: e.target.value }))}
+                    />
+                  </div>
 
-                <div>
-                  <Label htmlFor="notes">Notes</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                    placeholder="Additional notes about this contact..."
-                    rows={3}
-                  />
-                </div>
+                  <div>
+                    <Label htmlFor="notes">Notes</Label>
+                    <Textarea
+                      id="notes"
+                      value={formData.notes}
+                      onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                      placeholder="Additional notes about this contact..."
+                      rows={3}
+                    />
+                  </div>
 
-                <div className="flex space-x-2">
-                  <Button type="submit">
-                    {editingContact ? 'Update Contact' : 'Add Contact'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setShowForm(false);
-                      setEditingContact(undefined);
-                      resetForm();
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                  <div className="flex space-x-2">
+                    <Button type="submit">
+                      {editingContact ? 'Update Contact' : 'Add Contact'}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        setShowForm(false);
+                        setEditingContact(undefined);
+                        resetForm();
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -275,55 +334,86 @@ export function ContactManagement({ callCenterId, callCenterName, showGlobalView
           </div>
         ) : (
           <div className="space-y-3">
+            {/* Select All Header */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border">
+              <div className="flex items-center space-x-3">
+                <input
+                  type="checkbox"
+                  checked={selectedContacts.size === contacts.length && contacts.length > 0}
+                  onChange={(e) => handleSelectAll(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                  aria-label="Select all contacts"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  Select All ({contacts.length} contacts)
+                </span>
+              </div>
+              {selectedContacts.size > 0 && (
+                <span className="text-sm text-blue-600 font-medium">
+                  {selectedContacts.size} selected
+                </span>
+              )}
+            </div>
+
+            {/* Contact List */}
             {contacts.map(contact => (
               <div key={contact.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <User className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold">{contact.name}</h4>
-                      {contact.position && (
-                        <p className="text-sm text-gray-600">{contact.position}</p>
-                      )}
-                      {showGlobalView && 'callCenterName' in contact && (contact as any).callCenterName && (
-                        <Badge variant="outline" className="text-xs mt-1">
-                          {(contact as any).callCenterName}
-                        </Badge>
-                      )}
-                      <div className="flex items-center space-x-4 mt-1">
-                        {contact.phone && (
-                          <div className="flex items-center space-x-2 text-sm text-gray-600">
-                            <Phone className="w-4 h-4 mr-1" />
-                            {contact.phone}
-                            {contact.phone_info && contact.phone_info.is_mobile && contact.phone_info.whatsapp_confidence >= 0.7 && (
-                              <a
-                                href={PhoneDetectionService.getWhatsAppLink(contact.phone)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
-                              >
-                                WhatsApp
-                              </a>
-                            )}
-                          </div>
-                        )}
-                        {contact.email && (
-                          <div className="flex items-center text-sm text-gray-600">
-                            <Mail className="w-4 h-4 mr-1" />
-                            {contact.email}
-                          </div>
-                        )}
+                <div className="flex items-center space-x-3 flex-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedContacts.has(contact.id)}
+                    onChange={(e) => handleSelectContact(contact.id, e.target.checked)}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500"
+                    aria-label={`Select contact ${contact.name}`}
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <User className="w-5 h-5 text-blue-600" />
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Last contacted: {new Date(contact.lastContact).toLocaleDateString()}
-                      </p>
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{contact.name}</h4>
+                        {contact.position && (
+                          <p className="text-sm text-gray-600">{contact.position}</p>
+                        )}
+                        {showGlobalView && 'callCenterName' in contact && (contact as any).callCenterName && (
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {(contact as any).callCenterName}
+                          </Badge>
+                        )}
+                        <div className="flex items-center space-x-4 mt-1">
+                          {contact.phone && (
+                            <div className="flex items-center space-x-2 text-sm text-gray-600">
+                              <Phone className="w-4 h-4 mr-1" />
+                              {contact.phone}
+                              {contact.phone_info && contact.phone_info.is_mobile && contact.phone_info.whatsapp_confidence >= 0.7 && (
+                                <a
+                                  href={PhoneDetectionService.getWhatsAppLink(contact.phone)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center px-2 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700"
+                                >
+                                  WhatsApp
+                                </a>
+                              )}
+                            </div>
+                          )}
+                          {contact.email && (
+                            <div className="flex items-center text-sm text-gray-600">
+                              <Mail className="w-4 h-4 mr-1" />
+                              {contact.email}
+                            </div>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Last contacted: {new Date(contact.lastContact).toLocaleDateString()}
+                        </p>
+                      </div>
                     </div>
+                    {contact.notes && (
+                      <p className="text-sm text-gray-600 mt-2 pl-13">{contact.notes}</p>
+                    )}
                   </div>
-                  {contact.notes && (
-                    <p className="text-sm text-gray-600 mt-2 pl-13">{contact.notes}</p>
-                  )}
                 </div>
                 <div className="flex items-center space-x-2">
                   <Button variant="outline" size="sm" onClick={() => handleEdit(contact)}>

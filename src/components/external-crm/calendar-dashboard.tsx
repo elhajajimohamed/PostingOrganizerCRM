@@ -49,8 +49,17 @@ export function CalendarDashboard({ refreshTrigger }: CalendarDashboardProps) {
     date: '',
     time: '',
     location: '',
-    type: 'meeting' as CalendarEvent['type']
+    type: 'meeting' as CalendarEvent['type'],
+    callCenterId: '',
+    callCenterName: ''
   });
+
+  // Call center search state
+  const [callCenterSearch, setCallCenterSearch] = useState('');
+  const [callCenterSuggestions, setCallCenterSuggestions] = useState<any[]>([]);
+  const [showCallCenterSuggestions, setShowCallCenterSuggestions] = useState(false);
+  const [autocompleteSuggestion, setAutocompleteSuggestion] = useState('');
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(-1);
 
   useEffect(() => {
     loadEvents();
@@ -84,6 +93,11 @@ export function CalendarDashboard({ refreshTrigger }: CalendarDashboardProps) {
         setEvents(prev => [...prev, newEvent]);
         setShowEventDialog(false);
         resetForm();
+
+        // If a call center is tagged, create a step for it
+        if (eventForm.callCenterId && eventForm.callCenterName) {
+          await createStepForCallCenter(newEvent);
+        }
       }
     } catch (error) {
       console.error('Error creating event:', error);
@@ -190,8 +204,13 @@ export function CalendarDashboard({ refreshTrigger }: CalendarDashboardProps) {
       date: '',
       time: '',
       location: '',
-      type: 'meeting'
+      type: 'meeting',
+      callCenterId: '',
+      callCenterName: ''
     });
+    setCallCenterSearch('');
+    setCallCenterSuggestions([]);
+    setShowCallCenterSuggestions(false);
   };
 
   const openEventDialog = (date?: Date, event?: CalendarEvent) => {
@@ -203,15 +222,144 @@ export function CalendarDashboard({ refreshTrigger }: CalendarDashboardProps) {
         date: event.date,
         time: event.time || '',
         location: event.location || '',
-        type: event.type
+        type: event.type,
+        callCenterId: event.callCenterId || '',
+        callCenterName: event.callCenterName || ''
       });
+      setCallCenterSearch(event.callCenterName || '');
     } else if (date) {
       setEventForm({
         ...eventForm,
-        date: format(date, 'yyyy-MM-dd')
+        date: format(date, 'yyyy-MM-dd'),
+        callCenterId: '',
+        callCenterName: ''
       });
+      setCallCenterSearch('');
     }
     setShowEventDialog(true);
+  };
+
+  // Search for call centers
+  const searchCallCenters = async (query: string) => {
+    if (query.length < 2) {
+      setCallCenterSuggestions([]);
+      setShowCallCenterSuggestions(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/external-crm?search=${encodeURIComponent(query)}&limit=10`);
+      if (response.ok) {
+        const data = await response.json();
+        setCallCenterSuggestions(data.callCenters || []);
+        setShowCallCenterSuggestions(true);
+
+        // Auto-complete if there's a single suggestion that starts with the input
+        if (data.callCenters && data.callCenters.length === 1) {
+          const suggestion = data.callCenters[0];
+          if (suggestion.name.toLowerCase().startsWith(query.toLowerCase())) {
+            setAutocompleteSuggestion(suggestion.name);
+          } else {
+            setAutocompleteSuggestion('');
+          }
+        } else {
+          setAutocompleteSuggestion('');
+        }
+      }
+    } catch (error) {
+      console.error('Error searching call centers:', error);
+    }
+  };
+
+  // Select a call center from suggestions
+  const selectCallCenter = (callCenter: any) => {
+    setEventForm(prev => ({
+      ...prev,
+      callCenterId: callCenter.id,
+      callCenterName: callCenter.name
+    }));
+    setCallCenterSearch(callCenter.name);
+    setShowCallCenterSuggestions(false);
+  };
+
+  // Handle input change with autocomplete
+  const handleCallCenterInputChange = (value: string) => {
+    setCallCenterSearch(value);
+    setSelectedSuggestionIndex(-1);
+
+    // Search for suggestions
+    searchCallCenters(value);
+  };
+
+  // Handle keyboard navigation
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showCallCenterSuggestions || callCenterSuggestions.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev =>
+          prev < callCenterSuggestions.length - 1 ? prev + 1 : 0
+        );
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        setSelectedSuggestionIndex(prev =>
+          prev > 0 ? prev - 1 : callCenterSuggestions.length - 1
+        );
+        break;
+      case 'Enter':
+        e.preventDefault();
+        if (selectedSuggestionIndex >= 0) {
+          selectCallCenter(callCenterSuggestions[selectedSuggestionIndex]);
+        }
+        break;
+      case 'Escape':
+        setShowCallCenterSuggestions(false);
+        setSelectedSuggestionIndex(-1);
+        break;
+    }
+  };
+
+  // Clear call center selection
+  const clearCallCenter = () => {
+    setEventForm(prev => ({
+      ...prev,
+      callCenterId: '',
+      callCenterName: ''
+    }));
+    setCallCenterSearch('');
+    setShowCallCenterSuggestions(false);
+  };
+
+  // Create a step for the tagged call center
+  const createStepForCallCenter = async (event: CalendarEvent) => {
+    if (!event.callCenterId || !event.callCenterName) return;
+
+    try {
+      const stepData = {
+        title: event.title,
+        description: event.description || `Calendar event: ${event.title}`,
+        date: event.date,
+        completed: false,
+        notes: `Created from calendar event on ${new Date().toLocaleDateString()}`,
+        priority: 'medium' as const
+      };
+
+      const response = await fetch(`/api/external-crm/call-centers/${event.callCenterId}/steps`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(stepData),
+      });
+
+      if (response.ok) {
+        console.log('✅ Step created for call center:', event.callCenterName);
+      } else {
+        console.error('❌ Failed to create step for call center');
+      }
+    } catch (error) {
+      console.error('❌ Error creating step for call center:', error);
+    }
   };
 
   const getEventsForDate = (date: Date) => {
@@ -346,6 +494,70 @@ export function CalendarDashboard({ refreshTrigger }: CalendarDashboardProps) {
                     <SelectItem value="reminder">Reminder</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Call Center Search */}
+              <div>
+                <Label htmlFor="callCenter">Tag Call Center (Optional)</Label>
+                <div className="relative">
+                  <div className="relative">
+                    <Input
+                      id="callCenter"
+                      value={callCenterSearch}
+                      onChange={(e) => handleCallCenterInputChange(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="Search for call center to tag..."
+                      className="pr-8"
+                    />
+                    {autocompleteSuggestion && callCenterSearch && (
+                      <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                        <span className="text-gray-400 text-sm">
+                          {autocompleteSuggestion.slice(callCenterSearch.length)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  {eventForm.callCenterName && (
+                    <button
+                      type="button"
+                      onClick={clearCallCenter}
+                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      title="Clear call center selection"
+                    >
+                      ✕
+                    </button>
+                  )}
+                  {showCallCenterSuggestions && callCenterSuggestions.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                      {callCenterSuggestions.map((callCenter: any, index: number) => (
+                        <div
+                          key={callCenter.id}
+                          className={`px-3 py-2 cursor-pointer ${
+                            index === selectedSuggestionIndex ? 'bg-blue-100' : 'hover:bg-gray-100'
+                          }`}
+                          onClick={() => selectCallCenter(callCenter)}
+                        >
+                          <div className="font-medium">{callCenter.name}</div>
+                          <div className="text-sm text-gray-500">
+                            {callCenter.city}, {callCenter.country} • {callCenter.positions} positions
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {eventForm.callCenterName && (
+                  <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-blue-800">
+                        📞 Tagged: <strong>{eventForm.callCenterName}</strong>
+                      </span>
+                      <span className="text-xs text-blue-600">
+                        This event will be added as a step to this call center
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="flex justify-end space-x-2">
                 <Button variant="outline" onClick={() => {

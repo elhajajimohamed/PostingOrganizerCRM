@@ -14,7 +14,7 @@ import {
 import { db } from '@/lib/firebase';
 import { FacebookAccount, CreateAccountData } from '@/lib/types';
 
-const COLLECTION_NAME = 'accounts';
+const COLLECTION_NAME = 'accountsVOIP';
 
 export class AccountService {
   // Get all accounts
@@ -134,6 +134,30 @@ export class AccountService {
 
   // Get active accounts only
   static async getActiveAccounts(): Promise<FacebookAccount[]> {
-    return this.getAccountsByStatus('active');
+    try {
+      // Use simple query to avoid composite index requirement
+      // Filter for active accounts client-side instead
+      const q = query(collection(db, COLLECTION_NAME));
+
+      const querySnapshot = await getDocs(q);
+      const allAccounts = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate(),
+        updatedAt: doc.data().updatedAt?.toDate(),
+      })) as FacebookAccount[];
+
+      // Filter for active accounts and sort by createdAt desc client-side
+      const activeAccounts = allAccounts
+        .filter((account: any) => account.status === 'active')
+        .sort((a: any, b: any) =>
+          (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
+        );
+
+      return activeAccounts;
+    } catch (error) {
+      console.error('Error getting active accounts:', error);
+      throw new Error('Failed to fetch active accounts');
+    }
   }
 }

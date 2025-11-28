@@ -60,7 +60,16 @@ export function MediaUpload({ onUploadSuccess, onCancel }: MediaUploadProps) {
   };
 
   const handleUpload = async () => {
-    if (!selectedFile || !category || !user) return;
+    // Check authentication first
+    if (!user) {
+      setError('❌ You need to log in to upload files. Please sign in first.');
+      return;
+    }
+
+    if (!selectedFile || !category) {
+      setError('Please select a file and category');
+      return;
+    }
 
     setUploading(true);
     setError('');
@@ -75,6 +84,12 @@ export function MediaUpload({ onUploadSuccess, onCancel }: MediaUploadProps) {
         fileType: selectedFile.type
       });
 
+      // Check file size before upload
+      const maxSize = 5 * 1024 * 1024; // 5MB limit
+      if (selectedFile.size > maxSize) {
+        throw new Error(`File size (${MediaService.formatFileSize(selectedFile.size)}) exceeds maximum limit of 5MB`);
+      }
+
       // Simulate progress for better UX
       const progressInterval = setInterval(() => {
         setUploadProgress(prev => {
@@ -82,10 +97,11 @@ export function MediaUpload({ onUploadSuccess, onCancel }: MediaUploadProps) {
             clearInterval(progressInterval);
             return prev;
           }
-          return prev + Math.random() * 15;
+          return prev + Math.random() * 10;
         });
       }, 200);
 
+      console.log('Uploading file to Firebase Storage...');
       const mediaId = await MediaService.uploadMedia(selectedFile, category, user.uid);
       clearInterval(progressInterval);
       setUploadProgress(100);
@@ -100,7 +116,23 @@ export function MediaUpload({ onUploadSuccess, onCancel }: MediaUploadProps) {
 
     } catch (err: any) {
       console.error('Upload failed:', err);
-      setError(err.message || 'Failed to upload file');
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to upload file';
+      
+      if (err.message?.includes('storage/unauthorized')) {
+        errorMessage = '🔐 Authentication required. Please log in and try again.';
+      } else if (err.message?.includes('quota-exceeded')) {
+        errorMessage = '📦 Storage quota exceeded. Please contact support.';
+      } else if (err.message?.includes('CORS')) {
+        errorMessage = '🌐 CORS error. Please check storage configuration.';
+      } else if (err.message?.includes('network') || err.message?.includes('fetch')) {
+        errorMessage = '🌍 Network error. Please check your connection and try again.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
       setUploading(false);
       setUploadProgress(0);
@@ -147,6 +179,41 @@ export function MediaUpload({ onUploadSuccess, onCancel }: MediaUploadProps) {
       </CardHeader>
       <CardContent>
         <div className="space-y-6">
+          {/* Authentication Status Indicator */}
+          <div className={`p-4 rounded-lg border ${
+            user
+              ? 'bg-green-50 border-green-200 text-green-700'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}>
+            <div className="flex items-center">
+              {user ? (
+                <>
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="font-medium">✅ Authenticated as {user.displayName || user.email}</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H8m13 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-medium">❌ Not authenticated - Please log in</span>
+                </>
+              )}
+            </div>
+            {!user && (
+              <div className="mt-3">
+                <p className="text-sm mb-2">
+                  🔒 Authentication required to upload files to Firebase Storage
+                </p>
+                <p className="text-sm">
+                  Please sign in to your account before attempting to upload images or videos.
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* File Upload Area */}
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${

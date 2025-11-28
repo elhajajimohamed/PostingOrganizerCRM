@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CallLog } from '@/lib/types/external-crm';
+import { formatDuration } from '@/lib/utils/duration';
 import { ExternalCRMSubcollectionsService } from '@/lib/services/external-crm-service';
 
 interface CallHistoryManagementProps {
@@ -120,11 +121,6 @@ export function CallHistoryManagement({ callCenterId }: CallHistoryManagementPro
     resetForm();
   };
 
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
 
   if (loading) {
     return <div className="text-center py-8">Loading call history...</div>;

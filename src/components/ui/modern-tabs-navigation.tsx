@@ -3,6 +3,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import {
    LayoutDashboard,
@@ -20,14 +26,20 @@ import {
    ChevronLeft,
    ChevronRight,
    Search,
-   Target
+   MessageCircle,
+   UserPlus,
+   Zap,
+   ChevronDown,
+   BarChart3,
+   Bell
  } from 'lucide-react';
 
 interface TabItem {
-  id: string;
-  label: string;
-  icon: React.ReactNode;
-  badge?: string;
+   id: string;
+   label: string;
+   icon: React.ReactNode;
+   badge?: string;
+   subItems?: TabItem[];
 }
 
 interface ModernTabsNavigationProps {
@@ -37,62 +49,69 @@ interface ModernTabsNavigationProps {
 }
 
 const tabItems: TabItem[] = [
-  {
-    id: 'dashboard',
-    label: 'Dashboard',
-    icon: <LayoutDashboard className="w-4 h-4" />
-  },
-  {
-     id: 'call-centers',
-     label: 'Call Centers',
-     icon: <Building2 className="w-4 h-4" />
+   {
+     id: 'dashboard',
+     label: 'Dashboard',
+     icon: <LayoutDashboard className="w-4 h-4" />
    },
    {
-     id: 'daily-calls',
-     label: 'Daily Calls',
-     icon: <PhoneCall className="w-4 h-4" />
+      id: 'call-centers',
+      label: 'Call Centers',
+      icon: <Building2 className="w-4 h-4" />
+    },
+    {
+      id: 'prospection',
+      label: 'Prospection',
+      icon: <UserPlus className="w-4 h-4" />
+    },
+    {
+      id: 'communication',
+      label: 'Communication',
+      icon: <Phone className="w-4 h-4" />,
+      subItems: [
+        {
+          id: 'daily-calls',
+          label: 'Daily Calls',
+          icon: <PhoneCall className="w-4 h-4" />
+        },
+        {
+          id: 'daily-whatsapp',
+          label: 'Daily WhatsApp',
+          icon: <MessageCircle className="w-4 h-4" />
+        }
+      ]
+    },
+   {
+     id: 'integrity',
+     label: 'Data Integrity',
+     icon: <Shield className="w-4 h-4" />
    },
-  {
-    id: 'integrity',
-    label: 'Data Integrity',
-    icon: <Shield className="w-4 h-4" />
-  },
-  {
-    id: 'financial',
-    label: 'Financial',
-    icon: <DollarSign className="w-4 h-4" />
-  },
-  {
-    id: 'tasks',
-    label: "Today's Tasks",
-    icon: <CheckSquare className="w-4 h-4" />
-  },
-  {
-    id: 'simulator',
-    label: 'Price Simulator',
-    icon: <Calculator className="w-4 h-4" />
-  },
-  {
-    id: 'duplicates',
-    label: 'Duplicates',
-    icon: <Copy className="w-4 h-4" />
-  },
-  {
-    id: 'calendar',
-    label: 'Calendar',
-    icon: <Calendar className="w-4 h-4" />
-  },
-  {
-    id: 'lead-finder',
-    label: 'Lead Finder',
-    icon: <Target className="w-4 h-4" />
-  },
-  {
-    id: 'posting-crm',
-    label: 'Facebook Groups CRM',
-    icon: <Users className="w-4 h-4" />
-  }
-];
+   {
+     id: 'financial',
+     label: 'Financial',
+     icon: <DollarSign className="w-4 h-4" />
+   },
+   {
+     id: 'tasks',
+     label: "Today's Tasks",
+     icon: <CheckSquare className="w-4 h-4" />
+   },
+   {
+     id: 'calendar',
+     label: 'Calendar',
+     icon: <Calendar className="w-4 h-4" />
+   },
+   {
+     id: 'reports',
+     label: 'Reports',
+     icon: <BarChart3 className="w-4 h-4" />
+   },
+   {
+     id: 'groups-posting',
+     label: 'Groups Posting',
+     icon: <Zap className="w-4 h-4" />
+   },
+ ];
 
 export function ModernTabsNavigation({ activeTab, onTabChange, className }: ModernTabsNavigationProps) {
   const [showScrollButtons, setShowScrollButtons] = useState(false);
@@ -157,45 +176,117 @@ export function ModernTabsNavigation({ activeTab, onTabChange, className }: Mode
           onScroll={(e) => checkScroll(e.currentTarget)}
         >
           {tabItems.map((item) => {
-            const isActive = activeTab === item.id;
+             const isActive = activeTab === item.id;
+             const hasSubItems = item.subItems && item.subItems.length > 0;
 
-            return (
-              <Button
-                key={item.id}
-                variant={isActive ? "default" : "ghost"}
-                className={cn(
-                  "flex items-center gap-2 h-10 px-4 rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0",
-                  isActive
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-                )}
-                onClick={() => onTabChange(item.id)}
-              >
-                <div className={cn(
-                  "transition-colors duration-200",
-                  isActive ? "text-white" : "text-gray-500"
-                )}>
-                  {item.icon}
-                </div>
+             if (hasSubItems) {
+               return (
+                 <DropdownMenu key={item.id}>
+                   <DropdownMenuTrigger asChild>
+                     <Button
+                       variant={isActive ? "default" : "ghost"}
+                       className={cn(
+                         "flex items-center gap-2 h-10 px-4 rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0",
+                         isActive
+                           ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700"
+                           : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                       )}
+                     >
+                       <div className={cn(
+                         "transition-colors duration-200",
+                         isActive ? "text-white" : "text-gray-500"
+                       )}>
+                         {item.icon}
+                       </div>
 
-                <span className="font-medium text-sm">
-                  {item.label}
-                </span>
+                       <span className="font-medium text-sm">
+                         {item.label}
+                       </span>
 
-                {item.badge && (
-                  <Badge
-                    variant={isActive ? "secondary" : "outline"}
-                    className={cn(
-                      "ml-1 text-xs",
-                      isActive ? "bg-white/20 text-white border-white/30" : ""
-                    )}
-                  >
-                    {item.badge}
-                  </Badge>
-                )}
-              </Button>
-            );
-          })}
+                       <ChevronDown className={cn(
+                         "w-4 h-4 transition-transform duration-200",
+                         isActive ? "text-white" : "text-gray-500"
+                       )} />
+
+                       {item.badge && (
+                         <Badge
+                           variant={isActive ? "secondary" : "outline"}
+                           className={cn(
+                             "ml-1 text-xs",
+                             isActive ? "bg-white/20 text-white border-white/30" : ""
+                           )}
+                         >
+                           {item.badge}
+                         </Badge>
+                       )}
+                     </Button>
+                   </DropdownMenuTrigger>
+                   <DropdownMenuContent align="start" className="w-48">
+                     {item.subItems?.map((subItem) => {
+                       const isSubActive = activeTab === subItem.id;
+                       return (
+                         <DropdownMenuItem
+                           key={subItem.id}
+                           onClick={() => onTabChange(subItem.id)}
+                           className={cn(
+                             "flex items-center gap-2 cursor-pointer",
+                             isSubActive ? "bg-blue-50 text-blue-700" : ""
+                           )}
+                         >
+                           <div className={cn(
+                             "transition-colors duration-200",
+                             isSubActive ? "text-blue-700" : "text-gray-500"
+                           )}>
+                             {subItem.icon}
+                           </div>
+                           <span className="font-medium text-sm">
+                             {subItem.label}
+                           </span>
+                         </DropdownMenuItem>
+                       );
+                     })}
+                   </DropdownMenuContent>
+                 </DropdownMenu>
+               );
+             }
+
+             return (
+               <Button
+                 key={item.id}
+                 variant={isActive ? "default" : "ghost"}
+                 className={cn(
+                   "flex items-center gap-2 h-10 px-4 rounded-lg transition-all duration-200 whitespace-nowrap flex-shrink-0",
+                   isActive
+                     ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md hover:from-blue-700 hover:to-purple-700"
+                     : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+                 )}
+                 onClick={() => onTabChange(item.id)}
+               >
+                 <div className={cn(
+                   "transition-colors duration-200",
+                   isActive ? "text-white" : "text-gray-500"
+                 )}>
+                   {item.icon}
+                 </div>
+
+                 <span className="font-medium text-sm">
+                   {item.label}
+                 </span>
+
+                 {item.badge && (
+                   <Badge
+                     variant={isActive ? "secondary" : "outline"}
+                     className={cn(
+                       "ml-1 text-xs",
+                       isActive ? "bg-white/20 text-white border-white/30" : ""
+                     )}
+                   >
+                     {item.badge}
+                   </Badge>
+                 )}
+               </Button>
+             );
+           })}
         </div>
       </div>
 

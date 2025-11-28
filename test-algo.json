@@ -1,0 +1,485 @@
+{
+  "timestamp": "2025-11-03T17:53:22.200Z",
+  "algorithm": "Variety-Focused with Max 2 Posts Per Group",
+  "target": 20,
+  "achieved": 20,
+  "performance": {
+    "reachedTarget": true,
+    "targetAchieved": "20/20 (100.0%)",
+    "browserDistribution": [
+      4,
+      4,
+      4,
+      4,
+      4
+    ],
+    "groupVariety": 10,
+    "noOveruse": true
+  },
+  "variety": {
+    "uniqueAccounts": 5,
+    "uniqueGroups": 10,
+    "uniqueBrowsers": 5,
+    "uniqueTexts": 5,
+    "uniqueImages": 3,
+    "averageTasksPerGroup": "2.00",
+    "maxGroupUsage": 2,
+    "minGroupUsage": 2
+  },
+  "accounts": {
+    "عبد العالي مساكني": 4,
+    "Mohamed EL": 4,
+    "Mohamed El ": 4,
+    "Mohamed EL ": 4,
+    "Mohamed El": 4
+  },
+  "browsers": {
+    "Brave": 4,
+    "Waterfox": 4,
+    "Aloha": 4,
+    "Avast": 4,
+    "Phoebe": 4
+  },
+  "groups": {
+    "centre d appel Meknes": {
+      "count": 2,
+      "members": 619,
+      "tasks": [
+        "task_1",
+        "task_2"
+      ]
+    },
+    "Embauche Dans Les Centres D'appel": {
+      "count": 2,
+      "members": 2400,
+      "tasks": [
+        "task_3",
+        "task_4"
+      ]
+    },
+    "Recrutement call center maroc": {
+      "count": 2,
+      "members": 2100,
+      "tasks": [
+        "task_5",
+        "task_6"
+      ]
+    },
+    "Centre d'appel agadir": {
+      "count": 2,
+      "members": 20000,
+      "tasks": [
+        "task_7",
+        "task_8"
+      ]
+    },
+    "Sénégal Centre D'appel": {
+      "count": 2,
+      "members": 11900,
+      "tasks": [
+        "task_9",
+        "task_10"
+      ]
+    },
+    "tout y passe centre d'appel": {
+      "count": 2,
+      "members": 1200,
+      "tasks": [
+        "task_11",
+        "task_12"
+      ]
+    },
+    "Recherche d'emploi Centre d'appel. Formation Télémarketing": {
+      "count": 2,
+      "members": 647,
+      "tasks": [
+        "task_13",
+        "task_14"
+      ]
+    },
+    "Centres d'appel Call Center TUNISIE": {
+      "count": 2,
+      "members": 1700,
+      "tasks": [
+        "task_15",
+        "task_16"
+      ]
+    },
+    "Centres d'appels du Maghreb": {
+      "count": 2,
+      "members": 822,
+      "tasks": [
+        "task_17",
+        "task_18"
+      ]
+    },
+    "Les centres d'appel Maroc": {
+      "count": 2,
+      "members": 837,
+      "tasks": [
+        "task_19",
+        "task_20"
+      ]
+    }
+  },
+  "texts": {
+    "text 1": 4,
+    "text 5 ": 4,
+    "text 2 ": 4,
+    "text 3 ": 4,
+    "text 4 ": 4
+  },
+  "images": {
+    "image 2": 7,
+    "image 3": 7,
+    "image 1": 6
+  },
+  "tasks": [
+    {
+      "id": "task_1",
+      "facebookAccountId": "4iaMM4ZeefqIbBV81pLl",
+      "facebookAccountName": "عبد العالي مساكني",
+      "facebookAccountBrowser": "Brave",
+      "facebookGroupId": "04eGMjGpaxI3EYDC1rsn",
+      "facebookGroupName": "centre d appel Meknes",
+      "facebookGroupMemberCount": 619,
+      "postingTextId": "CAt50J6cMlvVwAIseQZw",
+      "postingTextTitle": "text 1",
+      "postingTextContent": "🚀 Boostez vos appels avec la VoIP haute performance de Televoxia !\n🌍 Destinations clés :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Réductions automatiques sur gros volumes\n🤝 Devenez revendeur privilégié et augmentez vos marges\n🎁 Testez gratuitement sur [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #telecom",
+      "postingImageId": "cGg25ggsb78wtG9cjsRt",
+      "postingImageFilename": "image 2",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.195Z",
+      "updatedAt": "2025-11-03T17:53:22.195Z"
+    },
+    {
+      "id": "task_2",
+      "facebookAccountId": "8MLUNdI7uBxznfY9lpOM",
+      "facebookAccountName": "Mohamed EL",
+      "facebookAccountBrowser": "Waterfox",
+      "facebookGroupId": "04eGMjGpaxI3EYDC1rsn",
+      "facebookGroupName": "centre d appel Meknes",
+      "facebookGroupMemberCount": 619,
+      "postingTextId": "MzWgX34PUcXR4Yncj2TP",
+      "postingTextTitle": "text 5 ",
+      "postingTextContent": "🚀 Passez à la VoIP qui fait grandir votre business !\n📈 Des tarifs transparents pour chaque marché :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Plus vous appelez, plus vous économisez\n🤝 Revendeurs privilégiés = plus de marges et plus de clients\n🎁 Essayez gratuitement maintenant : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #B2Bgrowth",
+      "postingImageId": "oR0uTDpQmYiqVUYuUc30",
+      "postingImageFilename": "image 3",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.195Z",
+      "updatedAt": "2025-11-03T17:53:22.195Z"
+    },
+    {
+      "id": "task_3",
+      "facebookAccountId": "9wOt2sPTXczJaqbQ6qRv",
+      "facebookAccountName": "Mohamed El ",
+      "facebookAccountBrowser": "Aloha",
+      "facebookGroupId": "0E3jKhJCwUPun5SSz6Ca",
+      "facebookGroupName": "Embauche Dans Les Centres D'appel",
+      "facebookGroupMemberCount": 2400,
+      "postingTextId": "UrtZPryTmdORzSQDDPa0",
+      "postingTextTitle": "text 2 ",
+      "postingTextContent": "🌟 Passez à la VoIP fiable et rentable avec Televoxia !\n📞 Appels clairs, connexion stable, tarifs compétitifs :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💡 Plus vous appelez, moins vous payez !\n🤝 Revendeurs privilégiés = marges supérieures\n🎁 Essayez gratuitement dès aujourd’hui : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #B2B",
+      "postingImageId": "zzbNgYNAD4hEVUbtJshn",
+      "postingImageFilename": "image 1",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.195Z",
+      "updatedAt": "2025-11-03T17:53:22.195Z"
+    },
+    {
+      "id": "task_4",
+      "facebookAccountId": "WTK9JhECX9LSSjT3ARON",
+      "facebookAccountName": "Mohamed EL ",
+      "facebookAccountBrowser": "Avast",
+      "facebookGroupId": "0E3jKhJCwUPun5SSz6Ca",
+      "facebookGroupName": "Embauche Dans Les Centres D'appel",
+      "facebookGroupMemberCount": 2400,
+      "postingTextId": "gck4S9OT4wOXWa6mdAxV",
+      "postingTextTitle": "text 3 ",
+      "postingTextContent": "🚀 Passez à la VoIP qui fait la différence !\n🌍 Connectez vos call centers à l’Europe et l’Amérique du Nord avec des tarifs ultra compétitifs :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Économisez encore plus avec le volume !\n🤝 Revendeurs = profits garantis\n🎁 Essayez gratuitement dès maintenant : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #telecom",
+      "postingImageId": "cGg25ggsb78wtG9cjsRt",
+      "postingImageFilename": "image 2",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.195Z",
+      "updatedAt": "2025-11-03T17:53:22.195Z"
+    },
+    {
+      "id": "task_5",
+      "facebookAccountId": "tgTTUAooNSy2J2TyP7Jp",
+      "facebookAccountName": "Mohamed El",
+      "facebookAccountBrowser": "Phoebe",
+      "facebookGroupId": "0mC0Dob8Hba68KVeyxR4",
+      "facebookGroupName": "Recrutement call center maroc",
+      "facebookGroupMemberCount": 2100,
+      "postingTextId": "lutsg0XQQ65RBM1W5CJe",
+      "postingTextTitle": "text 4 ",
+      "postingTextContent": "🌐 Découvrez la VoIP premium pour call centers exigeants.\n✅ Qualité d’appel HD\n✅ Tarification flexible et compétitive\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Réduction progressive selon votre volume d’appels\n🤝 Revendeurs = revenus optimisés\n🎁 Test gratuit sur [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #HDvoice",
+      "postingImageId": "oR0uTDpQmYiqVUYuUc30",
+      "postingImageFilename": "image 3",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.195Z",
+      "updatedAt": "2025-11-03T17:53:22.195Z"
+    },
+    {
+      "id": "task_6",
+      "facebookAccountId": "4iaMM4ZeefqIbBV81pLl",
+      "facebookAccountName": "عبد العالي مساكني",
+      "facebookAccountBrowser": "Brave",
+      "facebookGroupId": "0mC0Dob8Hba68KVeyxR4",
+      "facebookGroupName": "Recrutement call center maroc",
+      "facebookGroupMemberCount": 2100,
+      "postingTextId": "CAt50J6cMlvVwAIseQZw",
+      "postingTextTitle": "text 1",
+      "postingTextContent": "🚀 Boostez vos appels avec la VoIP haute performance de Televoxia !\n🌍 Destinations clés :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Réductions automatiques sur gros volumes\n🤝 Devenez revendeur privilégié et augmentez vos marges\n🎁 Testez gratuitement sur [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #telecom",
+      "postingImageId": "zzbNgYNAD4hEVUbtJshn",
+      "postingImageFilename": "image 1",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.196Z",
+      "updatedAt": "2025-11-03T17:53:22.196Z"
+    },
+    {
+      "id": "task_7",
+      "facebookAccountId": "8MLUNdI7uBxznfY9lpOM",
+      "facebookAccountName": "Mohamed EL",
+      "facebookAccountBrowser": "Waterfox",
+      "facebookGroupId": "0riOlkNTmdp8NUjBQCZb",
+      "facebookGroupName": "Centre d'appel agadir",
+      "facebookGroupMemberCount": 20000,
+      "postingTextId": "MzWgX34PUcXR4Yncj2TP",
+      "postingTextTitle": "text 5 ",
+      "postingTextContent": "🚀 Passez à la VoIP qui fait grandir votre business !\n📈 Des tarifs transparents pour chaque marché :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Plus vous appelez, plus vous économisez\n🤝 Revendeurs privilégiés = plus de marges et plus de clients\n🎁 Essayez gratuitement maintenant : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #B2Bgrowth",
+      "postingImageId": "cGg25ggsb78wtG9cjsRt",
+      "postingImageFilename": "image 2",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.196Z",
+      "updatedAt": "2025-11-03T17:53:22.196Z"
+    },
+    {
+      "id": "task_8",
+      "facebookAccountId": "9wOt2sPTXczJaqbQ6qRv",
+      "facebookAccountName": "Mohamed El ",
+      "facebookAccountBrowser": "Aloha",
+      "facebookGroupId": "0riOlkNTmdp8NUjBQCZb",
+      "facebookGroupName": "Centre d'appel agadir",
+      "facebookGroupMemberCount": 20000,
+      "postingTextId": "UrtZPryTmdORzSQDDPa0",
+      "postingTextTitle": "text 2 ",
+      "postingTextContent": "🌟 Passez à la VoIP fiable et rentable avec Televoxia !\n📞 Appels clairs, connexion stable, tarifs compétitifs :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💡 Plus vous appelez, moins vous payez !\n🤝 Revendeurs privilégiés = marges supérieures\n🎁 Essayez gratuitement dès aujourd’hui : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #B2B",
+      "postingImageId": "oR0uTDpQmYiqVUYuUc30",
+      "postingImageFilename": "image 3",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.196Z",
+      "updatedAt": "2025-11-03T17:53:22.196Z"
+    },
+    {
+      "id": "task_9",
+      "facebookAccountId": "WTK9JhECX9LSSjT3ARON",
+      "facebookAccountName": "Mohamed EL ",
+      "facebookAccountBrowser": "Avast",
+      "facebookGroupId": "1cMyGmeZ1FH8DqKGxFxz",
+      "facebookGroupName": "Sénégal Centre D'appel",
+      "facebookGroupMemberCount": 11900,
+      "postingTextId": "gck4S9OT4wOXWa6mdAxV",
+      "postingTextTitle": "text 3 ",
+      "postingTextContent": "🚀 Passez à la VoIP qui fait la différence !\n🌍 Connectez vos call centers à l’Europe et l’Amérique du Nord avec des tarifs ultra compétitifs :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Économisez encore plus avec le volume !\n🤝 Revendeurs = profits garantis\n🎁 Essayez gratuitement dès maintenant : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #telecom",
+      "postingImageId": "zzbNgYNAD4hEVUbtJshn",
+      "postingImageFilename": "image 1",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.196Z",
+      "updatedAt": "2025-11-03T17:53:22.196Z"
+    },
+    {
+      "id": "task_10",
+      "facebookAccountId": "tgTTUAooNSy2J2TyP7Jp",
+      "facebookAccountName": "Mohamed El",
+      "facebookAccountBrowser": "Phoebe",
+      "facebookGroupId": "1cMyGmeZ1FH8DqKGxFxz",
+      "facebookGroupName": "Sénégal Centre D'appel",
+      "facebookGroupMemberCount": 11900,
+      "postingTextId": "lutsg0XQQ65RBM1W5CJe",
+      "postingTextTitle": "text 4 ",
+      "postingTextContent": "🌐 Découvrez la VoIP premium pour call centers exigeants.\n✅ Qualité d’appel HD\n✅ Tarification flexible et compétitive\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Réduction progressive selon votre volume d’appels\n🤝 Revendeurs = revenus optimisés\n🎁 Test gratuit sur [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #HDvoice",
+      "postingImageId": "cGg25ggsb78wtG9cjsRt",
+      "postingImageFilename": "image 2",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.196Z",
+      "updatedAt": "2025-11-03T17:53:22.196Z"
+    },
+    {
+      "id": "task_11",
+      "facebookAccountId": "4iaMM4ZeefqIbBV81pLl",
+      "facebookAccountName": "عبد العالي مساكني",
+      "facebookAccountBrowser": "Brave",
+      "facebookGroupId": "1u8hg23MJaP9Dkb1jvtk",
+      "facebookGroupName": "tout y passe centre d'appel",
+      "facebookGroupMemberCount": 1200,
+      "postingTextId": "CAt50J6cMlvVwAIseQZw",
+      "postingTextTitle": "text 1",
+      "postingTextContent": "🚀 Boostez vos appels avec la VoIP haute performance de Televoxia !\n🌍 Destinations clés :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Réductions automatiques sur gros volumes\n🤝 Devenez revendeur privilégié et augmentez vos marges\n🎁 Testez gratuitement sur [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #telecom",
+      "postingImageId": "oR0uTDpQmYiqVUYuUc30",
+      "postingImageFilename": "image 3",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.197Z",
+      "updatedAt": "2025-11-03T17:53:22.197Z"
+    },
+    {
+      "id": "task_12",
+      "facebookAccountId": "8MLUNdI7uBxznfY9lpOM",
+      "facebookAccountName": "Mohamed EL",
+      "facebookAccountBrowser": "Waterfox",
+      "facebookGroupId": "1u8hg23MJaP9Dkb1jvtk",
+      "facebookGroupName": "tout y passe centre d'appel",
+      "facebookGroupMemberCount": 1200,
+      "postingTextId": "MzWgX34PUcXR4Yncj2TP",
+      "postingTextTitle": "text 5 ",
+      "postingTextContent": "🚀 Passez à la VoIP qui fait grandir votre business !\n📈 Des tarifs transparents pour chaque marché :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Plus vous appelez, plus vous économisez\n🤝 Revendeurs privilégiés = plus de marges et plus de clients\n🎁 Essayez gratuitement maintenant : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #B2Bgrowth",
+      "postingImageId": "zzbNgYNAD4hEVUbtJshn",
+      "postingImageFilename": "image 1",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.197Z",
+      "updatedAt": "2025-11-03T17:53:22.197Z"
+    },
+    {
+      "id": "task_13",
+      "facebookAccountId": "9wOt2sPTXczJaqbQ6qRv",
+      "facebookAccountName": "Mohamed El ",
+      "facebookAccountBrowser": "Aloha",
+      "facebookGroupId": "1vldzs8i23VguPV9yFBE",
+      "facebookGroupName": "Recherche d'emploi Centre d'appel. Formation Télémarketing",
+      "facebookGroupMemberCount": 647,
+      "postingTextId": "UrtZPryTmdORzSQDDPa0",
+      "postingTextTitle": "text 2 ",
+      "postingTextContent": "🌟 Passez à la VoIP fiable et rentable avec Televoxia !\n📞 Appels clairs, connexion stable, tarifs compétitifs :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💡 Plus vous appelez, moins vous payez !\n🤝 Revendeurs privilégiés = marges supérieures\n🎁 Essayez gratuitement dès aujourd’hui : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #B2B",
+      "postingImageId": "cGg25ggsb78wtG9cjsRt",
+      "postingImageFilename": "image 2",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.197Z",
+      "updatedAt": "2025-11-03T17:53:22.197Z"
+    },
+    {
+      "id": "task_14",
+      "facebookAccountId": "WTK9JhECX9LSSjT3ARON",
+      "facebookAccountName": "Mohamed EL ",
+      "facebookAccountBrowser": "Avast",
+      "facebookGroupId": "1vldzs8i23VguPV9yFBE",
+      "facebookGroupName": "Recherche d'emploi Centre d'appel. Formation Télémarketing",
+      "facebookGroupMemberCount": 647,
+      "postingTextId": "gck4S9OT4wOXWa6mdAxV",
+      "postingTextTitle": "text 3 ",
+      "postingTextContent": "🚀 Passez à la VoIP qui fait la différence !\n🌍 Connectez vos call centers à l’Europe et l’Amérique du Nord avec des tarifs ultra compétitifs :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Économisez encore plus avec le volume !\n🤝 Revendeurs = profits garantis\n🎁 Essayez gratuitement dès maintenant : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #telecom",
+      "postingImageId": "oR0uTDpQmYiqVUYuUc30",
+      "postingImageFilename": "image 3",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.197Z",
+      "updatedAt": "2025-11-03T17:53:22.197Z"
+    },
+    {
+      "id": "task_15",
+      "facebookAccountId": "tgTTUAooNSy2J2TyP7Jp",
+      "facebookAccountName": "Mohamed El",
+      "facebookAccountBrowser": "Phoebe",
+      "facebookGroupId": "1wVW7qPnQM1BmwMJ4XwP",
+      "facebookGroupName": "Centres d'appel Call Center TUNISIE",
+      "facebookGroupMemberCount": 1700,
+      "postingTextId": "lutsg0XQQ65RBM1W5CJe",
+      "postingTextTitle": "text 4 ",
+      "postingTextContent": "🌐 Découvrez la VoIP premium pour call centers exigeants.\n✅ Qualité d’appel HD\n✅ Tarification flexible et compétitive\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Réduction progressive selon votre volume d’appels\n🤝 Revendeurs = revenus optimisés\n🎁 Test gratuit sur [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #HDvoice",
+      "postingImageId": "zzbNgYNAD4hEVUbtJshn",
+      "postingImageFilename": "image 1",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.197Z",
+      "updatedAt": "2025-11-03T17:53:22.197Z"
+    },
+    {
+      "id": "task_16",
+      "facebookAccountId": "4iaMM4ZeefqIbBV81pLl",
+      "facebookAccountName": "عبد العالي مساكني",
+      "facebookAccountBrowser": "Brave",
+      "facebookGroupId": "1wVW7qPnQM1BmwMJ4XwP",
+      "facebookGroupName": "Centres d'appel Call Center TUNISIE",
+      "facebookGroupMemberCount": 1700,
+      "postingTextId": "CAt50J6cMlvVwAIseQZw",
+      "postingTextTitle": "text 1",
+      "postingTextContent": "🚀 Boostez vos appels avec la VoIP haute performance de Televoxia !\n🌍 Destinations clés :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Réductions automatiques sur gros volumes\n🤝 Devenez revendeur privilégié et augmentez vos marges\n🎁 Testez gratuitement sur [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #telecom",
+      "postingImageId": "cGg25ggsb78wtG9cjsRt",
+      "postingImageFilename": "image 2",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.197Z",
+      "updatedAt": "2025-11-03T17:53:22.197Z"
+    },
+    {
+      "id": "task_17",
+      "facebookAccountId": "8MLUNdI7uBxznfY9lpOM",
+      "facebookAccountName": "Mohamed EL",
+      "facebookAccountBrowser": "Waterfox",
+      "facebookGroupId": "211u8Vz2YeC11kA8IJSH",
+      "facebookGroupName": "Centres d'appels du Maghreb",
+      "facebookGroupMemberCount": 822,
+      "postingTextId": "MzWgX34PUcXR4Yncj2TP",
+      "postingTextTitle": "text 5 ",
+      "postingTextContent": "🚀 Passez à la VoIP qui fait grandir votre business !\n📈 Des tarifs transparents pour chaque marché :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Plus vous appelez, plus vous économisez\n🤝 Revendeurs privilégiés = plus de marges et plus de clients\n🎁 Essayez gratuitement maintenant : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #B2Bgrowth",
+      "postingImageId": "oR0uTDpQmYiqVUYuUc30",
+      "postingImageFilename": "image 3",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.198Z",
+      "updatedAt": "2025-11-03T17:53:22.198Z"
+    },
+    {
+      "id": "task_18",
+      "facebookAccountId": "9wOt2sPTXczJaqbQ6qRv",
+      "facebookAccountName": "Mohamed El ",
+      "facebookAccountBrowser": "Aloha",
+      "facebookGroupId": "211u8Vz2YeC11kA8IJSH",
+      "facebookGroupName": "Centres d'appels du Maghreb",
+      "facebookGroupMemberCount": 822,
+      "postingTextId": "UrtZPryTmdORzSQDDPa0",
+      "postingTextTitle": "text 2 ",
+      "postingTextContent": "🌟 Passez à la VoIP fiable et rentable avec Televoxia !\n📞 Appels clairs, connexion stable, tarifs compétitifs :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💡 Plus vous appelez, moins vous payez !\n🤝 Revendeurs privilégiés = marges supérieures\n🎁 Essayez gratuitement dès aujourd’hui : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #B2B",
+      "postingImageId": "zzbNgYNAD4hEVUbtJshn",
+      "postingImageFilename": "image 1",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.198Z",
+      "updatedAt": "2025-11-03T17:53:22.198Z"
+    },
+    {
+      "id": "task_19",
+      "facebookAccountId": "WTK9JhECX9LSSjT3ARON",
+      "facebookAccountName": "Mohamed EL ",
+      "facebookAccountBrowser": "Avast",
+      "facebookGroupId": "23I09659rqqX70uyOdck",
+      "facebookGroupName": "Les centres d'appel Maroc",
+      "facebookGroupMemberCount": 837,
+      "postingTextId": "gck4S9OT4wOXWa6mdAxV",
+      "postingTextTitle": "text 3 ",
+      "postingTextContent": "🚀 Passez à la VoIP qui fait la différence !\n🌍 Connectez vos call centers à l’Europe et l’Amérique du Nord avec des tarifs ultra compétitifs :\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Économisez encore plus avec le volume !\n🤝 Revendeurs = profits garantis\n🎁 Essayez gratuitement dès maintenant : [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #telecom",
+      "postingImageId": "cGg25ggsb78wtG9cjsRt",
+      "postingImageFilename": "image 2",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.198Z",
+      "updatedAt": "2025-11-03T17:53:22.198Z"
+    },
+    {
+      "id": "task_20",
+      "facebookAccountId": "tgTTUAooNSy2J2TyP7Jp",
+      "facebookAccountName": "Mohamed El",
+      "facebookAccountBrowser": "Phoebe",
+      "facebookGroupId": "23I09659rqqX70uyOdck",
+      "facebookGroupName": "Les centres d'appel Maroc",
+      "facebookGroupMemberCount": 837,
+      "postingTextId": "lutsg0XQQ65RBM1W5CJe",
+      "postingTextTitle": "text 4 ",
+      "postingTextContent": "🌐 Découvrez la VoIP premium pour call centers exigeants.\n✅ Qualité d’appel HD\n✅ Tarification flexible et compétitive\n🇫🇷 FR 0.0048 | 0.018\n🇧🇪 BE 0.024 | 0.028\n🇨🇦 CA 0.009 | 0.009\n🇪🇸 ES 0.009 | 0.040\n🇨🇭 CH 0.070 | 0.350\n🇩🇪 DE 0.0095 | 0.040\n🇮🇹 IT 0.015 | 0.025\n💰 Réduction progressive selon votre volume d’appels\n🤝 Revendeurs = revenus optimisés\n🎁 Test gratuit sur [Televoxia.com]\n📩 contact@televoxia.com\n | 📱 +212 710-622482\n#Televoxia #VoIP #callcenter #HDvoice",
+      "postingImageId": "oR0uTDpQmYiqVUYuUc30",
+      "postingImageFilename": "image 3",
+      "status": "pending",
+      "createdAt": "2025-11-03T17:53:22.198Z",
+      "updatedAt": "2025-11-03T17:53:22.198Z"
+    }
+  ],
+  "summary": {
+    "success": true,
+    "perfectVariety": true,
+    "goodBrowserRotation": true,
+    "uniqueGroupCount": 10
+  }
+}

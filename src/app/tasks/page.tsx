@@ -45,6 +45,7 @@ interface DailyTask {
 }
 
 export default function TasksPage() {
+  console.log('🔄 TasksPage component rendered!');
   const { user } = useAuth();
   const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([]);
   const [showAddTask, setShowAddTask] = useState(false);
@@ -55,107 +56,80 @@ export default function TasksPage() {
   const [newTaskTime, setNewTaskTime] = useState('');
   const [newTaskCallCenter, setNewTaskCallCenter] = useState('');
 
-  // Load daily tasks on component mount
+  // Load daily tasks on component mount - always call regardless of authentication
   useEffect(() => {
-    console.log('🔄 Tasks page loaded');
+    console.log('🔄 TasksPage useEffect triggered!');
     console.log('👤 Current user:', user);
     console.log('🔐 User authenticated:', !!user?.uid);
+    console.log('🕐 Current time:', new Date().toISOString());
 
-    if (user?.uid) {
-      console.log('✅ User authenticated, loading tasks...');
-      loadDailyTasks();
-    } else {
-      console.log('❌ No authenticated user');
-    }
-  }, [user?.uid]);
+    // Always load calendar events and tasks (no authentication required for calendar)
+    // Load Firebase tasks only when authenticated
+    console.log('✅ Loading today\'s tasks and calendar events...');
+    loadDailyTasks();
+  }, []);
 
   const loadDailyTasks = async () => {
-    if (!user?.uid) return;
-
     try {
-      console.log('🔄 Loading daily tasks for user:', user.uid);
+      console.log('🔄 loadDailyTasks function called!');
+      console.log('🔄 Loading today\'s combined tasks and calendar events...');
+      console.log('👤 User authenticated:', !!user?.uid);
+      
+      // Force reload the page data
+      console.log('🌐 Making API call to /api/external-crm/today...');
+      const response = await fetch('/api/external-crm/today');
+      console.log('📡 API response status:', response.status);
+      console.log('📡 API response ok:', response.ok);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ API Error response:', errorText);
+        throw new Error(`Failed to fetch today's data: ${response.status} - ${errorText}`);
+      }
 
-      // Load tasks from Firebase
-      const firebaseTasks = await TaskService.getAllTasks();
-      console.log('📋 All tasks loaded:', firebaseTasks.length, firebaseTasks);
+      const data = await response.json();
+      console.log('📋 Today\'s combined data:', data);
 
-      const today = new Date();
-      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-      const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
-
-      console.log('📅 Date range:', { startOfDay, endOfDay });
-
-      // Filter tasks for today and convert to DailyTask format
-      const todayTasks = firebaseTasks
-        .filter(task => {
-          const taskDate = task.date;
-          const isToday = taskDate >= startOfDay && taskDate < endOfDay;
-          console.log('🔍 Task filter:', {
-            taskId: task.id,
-            taskDate: taskDate,
-            isToday,
-            startOfDay,
-            endOfDay
-          });
-          return isToday;
-        })
-        .map(task => {
-          let title = 'Task';
-          let description = '';
-
-          try {
-            // Try to parse notes as JSON (new format)
-            if (task.notes) {
-              const parsedNotes = JSON.parse(task.notes);
-              if (parsedNotes && typeof parsedNotes === 'object') {
-                title = parsedNotes.title || parsedNotes.description || 'Task';
-                description = parsedNotes.description || '';
-              } else {
-                // Fallback for old format (just string)
-                title = task.notes;
-                description = task.notes;
-              }
-            }
-          } catch (error) {
-            // Fallback if JSON parsing fails
-            title = task.notes || 'Task';
-            description = task.notes || '';
-          }
-
-          return {
-            id: task.id!,
-            title,
-            description,
-            completed: task.status === 'completed',
-            createdAt: task.createdAt || new Date(),
-            completedAt: task.doneAt,
-            source: 'firebase' as const,
-            groupId: task.groupId,
-            accountId: task.accountId,
-          };
-        });
-
-      // Load calendar events for today
-      const todayCalendarEvents = await getTodayCalendarEvents();
-      console.log('📅 Today calendar events:', todayCalendarEvents.length, todayCalendarEvents);
-
-      // Convert calendar events to DailyTask format
-      const convertedCalendarEvents = todayCalendarEvents.map((event: any) => ({
-        id: `calendar-${event.id}`,
-        title: event.title,
-        description: event.description || '',
-        completed: event.status === 'completed', // Check if calendar event is completed
-        createdAt: new Date(event.date),
-        completedAt: event.completedAt ? new Date(event.completedAt) : undefined,
-        source: 'calendar' as const,
-        calendarEvent: event, // Keep reference to original event
+      // Convert the unified items to DailyTask format
+      const allDailyTasks = data.items.map((item: any) => ({
+        id: item.id,
+        title: item.title,
+        description: item.description || '',
+        completed: item.completed,
+        createdAt: new Date(item.date + (item.time ? `T${item.time}` : 'T00:00:00')),
+        completedAt: item.completedAt ? new Date(item.completedAt) : undefined,
+        source: item.source,
+        groupId: item.groupId,
+        accountId: item.accountId,
+        calendarEvent: item.source === 'calendar' ? {
+          id: item.id.replace('calendar-', ''),
+          title: item.title,
+          description: item.description,
+          date: item.date,
+          time: item.time,
+          location: item.location,
+          type: item.type,
+          callCenterId: item.callCenterId,
+          callCenterName: item.callCenterName,
+          status: item.completed ? 'completed' : 'pending',
+          completedAt: item.completedAt
+        } : undefined,
       }));
 
-      // Merge both types of tasks
-      const allDailyTasks = [...todayTasks, ...convertedCalendarEvents];
-      console.log('✅ All daily tasks (Firebase + Calendar):', allDailyTasks.length, allDailyTasks);
+      // Filter out Firebase tasks if user is not authenticated
+      const filteredTasks = !user?.uid
+        ? allDailyTasks.filter((task: any) => task.source === 'calendar')
+        : allDailyTasks;
 
-      setDailyTasks(allDailyTasks);
+      console.log('✅ Daily tasks loaded:', filteredTasks.length, filteredTasks);
+      console.log('📊 Summary:', {
+        total: filteredTasks.length,
+        calendar: filteredTasks.filter((t: any) => t.source === 'calendar').length,
+        firebase: filteredTasks.filter((t: any) => t.source === 'firebase').length
+      });
+      
+      setDailyTasks(filteredTasks);
+      console.log('✅ State updated with', filteredTasks.length, 'tasks');
     } catch (error) {
       console.error('❌ Error loading daily tasks:', error);
       console.error('❌ Error details:', {
@@ -166,30 +140,6 @@ export default function TasksPage() {
     }
   };
 
-  // Helper function to get today's calendar events
-  const getTodayCalendarEvents = async (): Promise<CalendarEvent[]> => {
-    try {
-      const today = new Date();
-      const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
-
-      const response = await fetch('/api/external-crm/calendar');
-      if (response.ok) {
-        const data = await response.json();
-        const allEvents = data.events || [];
-
-        // Filter events for today
-        const todayEvents = allEvents.filter((event: CalendarEvent) =>
-          event.date === todayStr || event.date.startsWith(todayStr)
-        );
-
-        return todayEvents;
-      }
-      return [];
-    } catch (error) {
-      console.error('❌ Error loading calendar events:', error);
-      return [];
-    }
-  };
 
   // Removed saveDailyTasks function as we now use Firebase
 
@@ -488,6 +438,23 @@ export default function TasksPage() {
         subtitle="Manage your scheduled posting tasks"
       />
       <div className="max-w-7xl mx-auto p-8 space-y-8">
+        {/* Debug Section */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Debug Information</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>Current dailyTasks count: {dailyTasks.length}</p>
+            <p>User authenticated: {user?.uid ? 'Yes' : 'No'}</p>
+            <Button onClick={() => {
+              console.log('🔄 Manual debug button clicked');
+              loadDailyTasks();
+            }} className="mt-2">
+              Manual Load Tasks (Debug)
+            </Button>
+          </CardContent>
+        </Card>
+
         {/* Daily Tasks Section */}
         <Card>
           <CardHeader>
@@ -515,18 +482,26 @@ export default function TasksPage() {
                 }
               }}>
                 <DialogTrigger asChild>
-                  <Button onClick={() => {
-                    console.log('🔘 Add Task button clicked in tasks page');
-                    setEditingTask(null);
-                    // Set default date to today
-                    const today = new Date().toISOString().split('T')[0];
-                    setNewTaskDate(today);
-                    setNewTaskTime('');
-                    setNewTaskCallCenter('');
-                    setNewTaskTitle('');
-                    setNewTaskDescription('');
-                    setShowAddTask(true);
-                  }}>
+                  <Button
+                    onClick={() => {
+                      console.log('🔘 Add Task button clicked in tasks page');
+                      if (!user?.uid) {
+                        console.log('❌ User not authenticated for task creation');
+                        alert('Please log in to create tasks');
+                        return;
+                      }
+                      setEditingTask(null);
+                      // Set default date to today
+                      const today = new Date().toISOString().split('T')[0];
+                      setNewTaskDate(today);
+                      setNewTaskTime('');
+                      setNewTaskCallCenter('');
+                      setNewTaskTitle('');
+                      setNewTaskDescription('');
+                      setShowAddTask(true);
+                    }}
+                    disabled={!user?.uid}
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Task
                   </Button>

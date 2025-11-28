@@ -54,6 +54,7 @@ export function EnhancedImport({ onImport }: EnhancedImportProps) {
   const [fileType, setFileType] = useState<'csv' | 'json' | null>(null);
   const [parsedData, setParsedData] = useState<ParsedCallCenter[]>([]);
   const [showPreview, setShowPreview] = useState(false);
+  const [progressText, setProgressText] = useState('');
   const [importOptions, setImportOptions] = useState<ImportOptions>({
     skipDuplicates: true,
     updateExisting: false,
@@ -89,6 +90,41 @@ export function EnhancedImport({ onImport }: EnhancedImportProps) {
         rawData = JSON.parse(text);
         if (!Array.isArray(rawData)) {
           throw new Error('JSON file must contain an array of objects');
+        // Transform legacy JSON format to standard format
+        rawData = rawData.map((item, index) => {
+          // Check if this is the standard CallCenter format (has 'name' field)
+          if (item.name && typeof item.name === 'string') {
+            // Standard CallCenter format - use fields directly
+            return item;
+          } else {
+            // Legacy format - transform to standard format
+            const standardFields = ['Country', 'Status', 'City', 'Number of Positions', 'Phone Numbers', 'Commentaire', 'Address'];
+            const nameKey = Object.keys(item).find(key => !standardFields.includes(key));
+
+            const name = nameKey ? item[nameKey] : '';
+            const address = nameKey || '';
+
+            // Map the legacy JSON structure to standard CallCenter format
+            const transformedItem = {
+              name: name,
+              country: item.Country || 'Morocco',
+              city: item.City || '',
+              positions: parseInt(item['Number of Positions']) || 0,
+              status: item.Status === 'Cold' ? 'New' : (item.Status || 'New'),
+              phones: item['Phone Numbers'] ? (typeof item['Phone Numbers'] === 'string' ? [item['Phone Numbers'].trim()] : []) : [],
+              emails: [], // JSON doesn't have emails
+              website: '',
+              tags: [],
+              notes: item.Commentaire || '',
+              address: item.Address || address,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              lastContacted: null,
+            };
+
+            return transformedItem;
+          }
+        });
         }
       } else {
         // Simple CSV parsing
@@ -169,8 +205,10 @@ export function EnhancedImport({ onImport }: EnhancedImportProps) {
 
     setUploading(true);
     setProgress(0);
+    setProgressText('Preparing import...');
 
     try {
+      setProgressText('Processing data and duplicates...');
       // Apply import options
       let finalData = selectedData.map(item => {
         let data = { ...item.data };
@@ -196,9 +234,11 @@ export function EnhancedImport({ onImport }: EnhancedImportProps) {
         finalData = finalData.filter(item => item.action !== 'skip');
       }
 
+      setProgressText(`Importing ${finalData.length} call centers...`);
       setProgress(50);
 
       await onImport(finalData, importOptions);
+      setProgressText('Finalizing import...');
       setProgress(100);
 
       alert(`Successfully imported ${finalData.length} call centers`);
@@ -300,8 +340,11 @@ export function EnhancedImport({ onImport }: EnhancedImportProps) {
 
               {uploading && (
                 <div className="space-y-2">
-                  <Progress value={progress} />
-                  <p className="text-sm text-gray-600">Processing file...</p>
+                  <Progress value={progress} className="w-full" />
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-600">{progressText || 'Processing file...'}</p>
+                    <p className="text-sm text-gray-500">{Math.round(progress)}%</p>
+                  </div>
                 </div>
               )}
             </CardContent>

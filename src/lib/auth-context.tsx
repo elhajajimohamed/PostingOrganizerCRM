@@ -10,6 +10,7 @@ import {
   signInWithPopup,
   createUserWithEmailAndPassword,
   updateProfile,
+  signInAnonymously,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from './firebase';
@@ -139,16 +140,78 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Listen for auth state changes
   useEffect(() => {
+    console.log('Setting up auth state listener');
+    
+    // For development, check if we should bypass auth
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
+
+    if (isDevelopment && bypassAuth) {
+      console.log('Development mode: Attempting to bypass auth');
+      
+      // First try to sign in anonymously (for Firebase Console users who have it enabled)
+      signInAnonymously(auth).then((userCredential) => {
+        console.log('✅ Anonymous sign-in successful, user:', userCredential.user.uid);
+        setFirebaseUser(userCredential.user);
+        setUser({
+          uid: userCredential.user.uid,
+          email: '',
+          displayName: 'Anonymous User',
+          role: 'operator',
+          createdAt: new Date(),
+        });
+        setLoading(false);
+      }).catch((anonymousError) => {
+        console.log('⚠️ Anonymous sign-in failed, using fallback for development');
+        console.log('❌ Anonymous error code:', anonymousError.code);
+        console.log('❌ Anonymous error message:', anonymousError.message);
+        
+        // If anonymous fails (usually because it's disabled in Firebase Console),
+        // create a mock user for development
+        console.log('🔧 Using development fallback - creating mock user');
+        
+        const mockUser = {
+          uid: 'dev-mock-user-' + Date.now(),
+          email: 'dev@example.com',
+          displayName: 'Development User',
+          role: 'operator' as const,
+          createdAt: new Date(),
+        };
+        
+        setUser(mockUser);
+        setFirebaseUser(null); // No actual Firebase user
+        setLoading(false);
+        
+        console.log('✅ Development fallback user created:', mockUser.uid);
+      });
+      return;
+    }
+    
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log('Auth state changed:', firebaseUser ? 'user logged in' : 'user logged out');
       if (firebaseUser) {
         setFirebaseUser(firebaseUser);
-        const convertedUser = await convertFirebaseUser(firebaseUser);
-        setUser(convertedUser);
+        try {
+          const convertedUser = await convertFirebaseUser(firebaseUser);
+          console.log('Converted user:', convertedUser);
+          setUser(convertedUser);
+        } catch (error) {
+          console.error('Error converting user:', error);
+          // Set a basic user object on error
+          setUser({
+            uid: firebaseUser.uid,
+            email: firebaseUser.email || '',
+            displayName: firebaseUser.displayName || 'User',
+            role: 'operator',
+            createdAt: new Date(),
+          });
+        }
       } else {
         setFirebaseUser(null);
         setUser(null);
       }
       setLoading(false);
+      console.log('Auth loading set to false');
     });
 
     return unsubscribe;

@@ -66,7 +66,11 @@ export interface FinancialReport {
 export class FinancialAnalyticsService {
   private static readonly MONTHLY_TARGET = 3000; // €
 
-  private static getCommissionRate(turnover: number): number {
+  private static getCommissionRate(turnover: number, isClosedWonClient: boolean = false): number {
+    // Always use 3% commission for Closed-Won clients
+    if (isClosedWonClient) return 0.03; // 3%
+
+    // Standard commission tiers for other clients
     if (turnover >= 20000) return 0.05; // 5%
     if (turnover >= 10000) return 0.04; // 4%
     if (turnover >= 6000) return 0.03; // 3%
@@ -80,8 +84,43 @@ export class FinancialAnalyticsService {
   }
 
   private static getCurrentMonthId(): string {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    // Default to November 2025 as per user request
+    return '2025-11';
+  }
+
+  private static getTargetMonthId(targetMonth?: string): string {
+    // If no specific month provided, default to November 2025
+    return targetMonth || '2025-11';
+  }
+
+  private static isTopupInMonth(topupDate: string, targetMonthId: string): boolean {
+    const topup = new Date(topupDate);
+    const targetMonth = targetMonthId.split('-');
+    const targetYear = parseInt(targetMonth[0]);
+    const targetMonthNum = parseInt(targetMonth[1]);
+
+    return topup.getFullYear() === targetYear && (topup.getMonth() + 1) === targetMonthNum;
+  }
+
+  private static extractAvailableMonths(topups: ClientTopup[]): string[] {
+    const months = new Set<string>();
+    
+    topups.forEach(topup => {
+      const date = new Date(topup.date);
+      const monthId = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      months.add(monthId);
+    });
+    
+    // Always include November 2025 as it's the current target month
+    months.add('2025-11');
+    
+    return Array.from(months).sort().reverse(); // Sort in descending order (newest first)
+  }
+
+  private static formatMonthId(monthId: string): string {
+    const [year, month] = monthId.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
   }
 
   private static getDaysSinceDate(dateString: string): number {
@@ -224,43 +263,82 @@ export class FinancialAnalyticsService {
     };
   }
 
-  static async generateFinancialReport(callCenters: CallCenter[]): Promise<FinancialReport> {
+  static async generateFinancialReport(callCenters: CallCenter[], targetMonthId?: string): Promise<FinancialReport> {
     try {
+      // Get the target month (default to November 2025)
+      const monthId = this.getTargetMonthId(targetMonthId);
+
       // Fetch real top-up data from Firebase
       const response = await fetch('/api/external-crm/top-ups');
       const result = await response.json();
 
       if (result.success && result.data.length > 0) {
         // Use real data
-        const topups = result.data as ClientTopup[];
+        const allTopups = result.data as ClientTopup[];
 
-        // Aggregate data by client
+        // Filter top-ups to only include those from the target month
+        const topups = allTopups.filter(topup => this.isTopupInMonth(topup.date, monthId));
+
+        // Get Closed-Won call centers to automatically include in financial tracking
+        const closedWonCallCenters = callCenters.filter(cc => cc.status === 'Closed-Won');
+
+        // Create a map of call centers by ID for quick lookup
+        const callCenterMap = new Map<string, CallCenter>();
+        callCenters.forEach(cc => callCenterMap.set(cc.id, cc));
+
+        // Aggregate data by client, but only include clients whose call centers are "Closed-Won"
         const clientMap = new Map<string, ClientConsumption>();
 
         topups.forEach(topup => {
-          const existing = clientMap.get(topup.clientId);
-          if (existing) {
-            existing.totalTopupEUR += topup.amountEUR;
-            existing.totalConsumptionEUR += topup.amountEUR; // Assuming top-up equals consumption for now
-            existing.lastTopupDate = topup.date > existing.lastTopupDate ? topup.date : existing.lastTopupDate;
-          } else {
-            clientMap.set(topup.clientId, {
-              clientId: topup.clientId,
-              clientName: topup.clientName,
-              totalConsumptionEUR: topup.amountEUR,
-              totalTopupEUR: topup.amountEUR,
-              paymentMethod: topup.paymentMethod,
-              lastTopupDate: topup.date,
-              country: topup.country,
-              notes: topup.notes
+          // Check if this client has a corresponding call center that is "Closed-Won"
+          const callCenter = callCenterMap.get(topup.clientId);
+          const isClosedWon = callCenter?.status === 'Closed-Won';
+
+          if (isClosedWon) {
+            const existing = clientMap.get(topup.clientId);
+            if (existing) {
+              existing.totalTopupEUR += topup.amountEUR;
+              existing.totalConsumptionEUR += topup.amountEUR; // Assuming top-up equals consumption for now
+              existing.lastTopupDate = topup.date > existing.lastTopupDate ? topup.date : existing.lastTopupDate;
+            } else {
+              clientMap.set(topup.clientId, {
+                clientId: topup.clientId,
+                clientName: topup.clientName,
+                totalConsumptionEUR: topup.amountEUR,
+                totalTopupEUR: topup.amountEUR,
+                paymentMethod: topup.paymentMethod,
+                lastTopupDate: topup.date,
+                country: topup.country,
+                notes: topup.notes
+              });
+            }
+          }
+        });
+
+        // Automatically add Closed-Won call centers that don't have top-ups yet
+        closedWonCallCenters.forEach(cc => {
+          if (!clientMap.has(cc.id)) {
+            clientMap.set(cc.id, {
+              clientId: cc.id,
+              clientName: cc.name,
+              totalConsumptionEUR: 0,
+              totalTopupEUR: 0,
+              paymentMethod: 'Bank Transfer', // Default payment method
+              lastTopupDate: cc.updatedAt || cc.createdAt,
+              country: cc.country as any,
+              notes: `Closed-Won call center - ${cc.city}, ${cc.positions} positions`
             });
           }
         });
 
         const clients = Array.from(clientMap.values());
+
         const currentTurnover = clients.reduce((sum, client) => sum + client.totalTopupEUR, 0);
-        const commissionRate = this.getCommissionRate(currentTurnover);
-        const commissionAmount = this.calculateCommission(currentTurnover);
+
+        // Check if we have any Closed-Won clients for special commission calculation
+        const hasClosedWonClients = closedWonCallCenters.length > 0;
+        const commissionRate = this.getCommissionRate(currentTurnover, hasClosedWonClients);
+        const commissionAmount = currentTurnover * commissionRate; // Always calculate commission for Closed-Won clients
 
         const totalConsumption = clients.reduce((sum, client) => sum + client.totalConsumptionEUR, 0);
         const activeClientsCount = clients.length;
@@ -287,10 +365,38 @@ export class FinancialAnalyticsService {
         };
       } else {
         // Fall back to mock data if no real data exists
-        const clients = this.generateMockClientData();
+        const allMockClients = this.generateMockClientData();
+
+        // Get Closed-Won call centers to filter mock data
+        const closedWonCallCenters = callCenters.filter(cc => cc.status === 'Closed-Won');
+
+        // Only include mock clients that correspond to Closed-Won call centers
+        const clients = allMockClients.filter(client =>
+          closedWonCallCenters.some(cc => cc.id === client.clientId)
+        );
+
+        // Automatically add Closed-Won call centers that don't have mock data yet
+        closedWonCallCenters.forEach(cc => {
+          if (!clients.find(c => c.clientId === cc.id)) {
+            clients.push({
+              clientId: cc.id,
+              clientName: cc.name,
+              totalConsumptionEUR: 0,
+              totalTopupEUR: 0,
+              paymentMethod: 'Bank Transfer', // Default payment method
+              lastTopupDate: cc.updatedAt || cc.createdAt,
+              country: cc.country as any,
+              notes: `Closed-Won call center - ${cc.city}, ${cc.positions} positions`
+            });
+          }
+        });
+
         const currentTurnover = clients.reduce((sum, client) => sum + client.totalTopupEUR, 0);
-        const commissionRate = this.getCommissionRate(currentTurnover);
-        const commissionAmount = this.calculateCommission(currentTurnover);
+
+        // Check if we have any Closed-Won clients for special commission calculation
+        const hasClosedWonClients = closedWonCallCenters.length > 0;
+        const commissionRate = this.getCommissionRate(currentTurnover, hasClosedWonClients);
+        const commissionAmount = currentTurnover * commissionRate; // Always calculate commission for Closed-Won clients
 
         const totalConsumption = clients.reduce((sum, client) => sum + client.totalConsumptionEUR, 0);
         const activeClientsCount = clients.length;
@@ -319,10 +425,38 @@ export class FinancialAnalyticsService {
     } catch (error) {
       console.error('Error fetching financial data:', error);
       // Fall back to mock data on error
-      const clients = this.generateMockClientData();
+      const allMockClients = this.generateMockClientData();
+
+      // Get Closed-Won call centers to filter mock data
+      const closedWonCallCenters = callCenters.filter(cc => cc.status === 'Closed-Won');
+
+      // Only include mock clients that correspond to Closed-Won call centers
+      const clients = allMockClients.filter(client =>
+        closedWonCallCenters.some(cc => cc.id === client.clientId)
+      );
+
+      // Automatically add Closed-Won call centers that don't have mock data yet
+      closedWonCallCenters.forEach(cc => {
+        if (!clients.find(c => c.clientId === cc.id)) {
+          clients.push({
+            clientId: cc.id,
+            clientName: cc.name,
+            totalConsumptionEUR: 0,
+            totalTopupEUR: 0,
+            paymentMethod: 'Bank Transfer', // Default payment method
+            lastTopupDate: cc.updatedAt || cc.createdAt,
+            country: cc.country as any,
+            notes: `Closed-Won call center - ${cc.city}, ${cc.positions} positions`
+          });
+        }
+      });
+
       const currentTurnover = clients.reduce((sum, client) => sum + client.totalTopupEUR, 0);
-      const commissionRate = this.getCommissionRate(currentTurnover);
-      const commissionAmount = this.calculateCommission(currentTurnover);
+
+      // Check if we have any Closed-Won clients for special commission calculation
+      const hasClosedWonClients = closedWonCallCenters.length > 0;
+      const commissionRate = this.getCommissionRate(currentTurnover, hasClosedWonClients);
+      const commissionAmount = currentTurnover * commissionRate; // Always calculate commission for Closed-Won clients
 
       const totalConsumption = clients.reduce((sum, client) => sum + client.totalConsumptionEUR, 0);
       const activeClientsCount = clients.length;
@@ -381,5 +515,22 @@ export class FinancialAnalyticsService {
 
   static getCountryOptions(): ClientTopup['country'][] {
     return ['Morocco', 'Senegal', 'Tunisia', 'Cameroon', 'Ivory Coast', 'Guinea'];
+  }
+
+  static async getAvailableMonths(): Promise<string[]> {
+    try {
+      const response = await fetch('/api/external-crm/top-ups');
+      const result = await response.json();
+      
+      if (result.success && result.data.length > 0) {
+        const topups = result.data as ClientTopup[];
+        return this.extractAvailableMonths(topups);
+      }
+    } catch (error) {
+      console.error('Error fetching available months:', error);
+    }
+    
+    // Return November 2025 as fallback
+    return ['2025-11'];
   }
 }

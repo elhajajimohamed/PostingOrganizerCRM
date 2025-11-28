@@ -15,7 +15,7 @@ import {
 import { db } from '@/lib/firebase';
 import { FacebookGroup, CreateGroupData } from '@/lib/types';
 
-const COLLECTION_NAME = 'groups';
+const COLLECTION_NAME = 'groupsVOIP';
 
 export class GroupService {
   // Get all groups
@@ -198,12 +198,39 @@ export class GroupService {
 
       // Filter groups that match the search term
       return groups.filter(group =>
-        group.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        group.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+        group.name.toLowerCase().includes(searchTerm.toLowerCase())
       );
     } catch (error) {
       console.error('Error searching groups:', error);
       throw new Error('Failed to search groups');
+    }
+  }
+
+  // Get active groups only
+  static async getActiveGroups(): Promise<FacebookGroup[]> {
+    try {
+      // Use simple query to avoid composite index requirement
+      // Filter for active groups client-side instead
+      const q = query(collection(db, COLLECTION_NAME));
+
+      const querySnapshot = await getDocs(q);
+      const allGroups = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate(),
+        updatedAt: doc.data().updatedAt?.toDate(),
+        lastPostAt: doc.data().lastPostAt?.toDate(),
+      })) as FacebookGroup[];
+
+      // Filter for active groups and sort by member count client-side
+      const activeGroups = allGroups
+        .filter((group: any) => group.isActive === true || group.isActive !== false)
+        .sort((a: any, b: any) => (b.memberCount || 0) - (a.memberCount || 0));
+
+      return activeGroups;
+    } catch (error) {
+      console.error('Error getting active groups:', error);
+      throw new Error('Failed to fetch active groups');
     }
   }
 }

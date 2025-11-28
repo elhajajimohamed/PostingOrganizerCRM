@@ -41,6 +41,7 @@ async function createCallCentersCollection() {
         country: "Cameroon",
         city: "Yaoundé",
         positions: 7,
+        positions_count: 7, // Add positions_count field
         status: "New",
         value: 0,
         currency: "USD",
@@ -59,7 +60,17 @@ async function createCallCentersCollection() {
         lastContacted: null,
         notes: "Lead found via Google Places search. Rating: 3.8/5 (237 reviews). Maps URL: undefined",
         createdAt: "2025-10-25T16:29:14.752Z",
-        updatedAt: "2025-10-25T16:29:14.752Z"
+        updatedAt: "2025-10-25T16:29:14.752Z",
+        // Add daily calls specific fields
+        is_client: false,
+        is_blacklisted: false,
+        is_valid_phone: true,
+        attempts_last_90_days: 0,
+        attempts_last_15_days: 0,
+        attempts_30d: 0,
+        lead_quality_score: 0.8,
+        company_size_score: 0.9,
+        business_hours_score: 0.0
       },
       {
         id: "0aK23skhluy1fm1FsnTB",
@@ -173,6 +184,7 @@ async function createCollectionUsingExistingService() {
         country: "Cameroon",
         city: "Yaoundé",
         positions: 7,
+        positions_count: 7, // Add positions_count field
         status: "New",
         value: 0,
         currency: "USD",
@@ -190,7 +202,17 @@ async function createCollectionUsingExistingService() {
         foundDate: "2025-10-25T16:29:14.752Z",
         lastContacted: null,
         notes: "Lead found via Google Places search. Rating: 3.8/5 (237 reviews). Maps URL: undefined",
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
+        // Add daily calls specific fields
+        is_client: false,
+        is_blacklisted: false,
+        is_valid_phone: true,
+        attempts_last_90_days: 0,
+        attempts_last_15_days: 0,
+        attempts_30d: 0,
+        lead_quality_score: 0.8,
+        company_size_score: 0.9,
+        business_hours_score: 0.0
       },
       {
         name: "FTGROUP",

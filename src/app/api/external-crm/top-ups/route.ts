@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { ClientTopup } from '@/lib/services/financial-analytics-service';
 
 const COLLECTION_NAME = 'clientTopups';
@@ -10,19 +11,36 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const clientId = searchParams.get('clientId');
 
-    let q = query(collection(db, COLLECTION_NAME), orderBy('date', 'desc'));
+    // Check if we're bypassing authentication (development mode)
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const bypassAuth = process.env.NEXT_PUBLIC_BYPASS_AUTH === 'true';
 
-    if (clientId) {
-      // Note: In production, you might want to add a composite index for clientId + date
-      // For now, we'll filter client-side
+    let topups: ClientTopup[];
+    if (isDevelopment && bypassAuth) {
+      console.log('🔍 API Route - Development mode: Fetching top-ups using Admin SDK');
+
+      // Use Admin SDK to bypass client-side auth issues
+      const querySnapshot = await adminDb.collection(COLLECTION_NAME).orderBy('date', 'desc').get();
+      topups = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().date?.toDate?.()?.toISOString() || doc.data().date,
+      })) as ClientTopup[];
+    } else {
+      let q = query(collection(db, COLLECTION_NAME), orderBy('date', 'desc'));
+
+      if (clientId) {
+        // Note: In production, you might want to add a composite index for clientId + date
+        // For now, we'll filter client-side
+      }
+
+      const querySnapshot = await getDocs(q);
+      topups = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().date?.toDate?.()?.toISOString() || doc.data().date,
+      })) as ClientTopup[];
     }
-
-    const querySnapshot = await getDocs(q);
-    const topups: ClientTopup[] = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      date: doc.data().date?.toDate?.()?.toISOString() || doc.data().date,
-    })) as ClientTopup[];
 
     // Filter by clientId if provided
     const filteredTopups = clientId ? topups.filter(t => t.clientId === clientId) : topups;
