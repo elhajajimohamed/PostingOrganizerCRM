@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const date = searchParams.get('date');
-    const tab = searchParams.get('tab') as 'today' | 'history' | 'contacted' || 'today';
+    const tab = searchParams.get('tab') as 'today' | 'history' | 'contacted' | 'today';
 
     if (isDevelopment && bypassAuth) {
       console.log('🔍 API Route - Development mode: Fetching prospects using Admin SDK with filters');
@@ -73,17 +73,41 @@ export async function GET(request: NextRequest) {
         }
       } else if (tab === 'contacted') {
         if (date) {
-          const targetDate = new Date(date);
+          const targetDate = new Date(date + 'T12:00:00.000Z'); // Use noon UTC to avoid timezone edge cases
+          console.log('🔍 [CONTACTED] Filtering for date:', date, 'target date UTC:', targetDate.toISOString());
+
+          const beforeFilter = prospects.length;
           prospects = prospects.filter(prospect => {
             if (!prospect.lastContacted) return false;
+
+            // Parse lastContacted and get date in UTC
             const lastContactedDate = new Date(prospect.lastContacted);
-            return (prospect.status === 'contacted' || prospect.status === 'added_to_crm') &&
-                   lastContactedDate.toDateString() === targetDate.toDateString();
+            const lastContactedUTC = new Date(lastContactedDate.getTime() - (lastContactedDate.getTimezoneOffset() * 60000));
+
+            // Compare year, month, day in UTC
+            const matches = (prospect.status === 'contacted' || prospect.status === 'added_to_crm') &&
+                           lastContactedUTC.getUTCFullYear() === targetDate.getUTCFullYear() &&
+                           lastContactedUTC.getUTCMonth() === targetDate.getUTCMonth() &&
+                           lastContactedUTC.getUTCDate() === targetDate.getUTCDate();
+
+            if (matches) {
+              console.log('✅ [CONTACTED] Matched prospect:', {
+                id: prospect.id,
+                name: prospect.name,
+                status: prospect.status,
+                lastContacted: prospect.lastContacted,
+                lastContactedLocal: lastContactedDate.toString(),
+                lastContactedUTC: lastContactedUTC.toISOString()
+              });
+            }
+
+            return matches;
           });
-          console.log('🔍 Applied filter for contacted (date + lastContacted + status):', prospects.length);
+
+          console.log('🔍 [CONTACTED] Filtered from', beforeFilter, 'to', prospects.length, 'prospects for date:', date);
         } else {
-          prospects = prospects.filter(prospect => (prospect.status === 'contacted' || prospect.status === 'added_to_crm') && prospect.lastContacted);
-          console.log('🔍 Applied filter for contacted (status + lastContacted only):', prospects.length);
+          prospects = prospects.filter(prospect => prospect.status === 'contacted' && prospect.lastContacted);
+          console.log('🔍 [CONTACTED] Filtered for all contacted prospects (no date filter):', prospects.length);
         }
       }
 
@@ -104,7 +128,7 @@ export async function GET(request: NextRequest) {
     }
 
     if (tab === 'contacted') {
-      prospects = prospects.filter(prospect => prospect.status === 'contacted' && prospect.lastContacted);
+      prospects = prospects.filter(prospect => (prospect.status === 'contacted' || prospect.status === 'added_to_crm') && prospect.lastContacted);
     }
 
     if (tab === 'today') {
