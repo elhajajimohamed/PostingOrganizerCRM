@@ -252,11 +252,21 @@ export class ProspectionService {
         } else if (tab === 'contacted') {
           // Show only prospects that were contacted (moved to this section) on this date
           // Include both 'contacted' and 'added_to_crm' status prospects that were contacted on the selected date
-          const selectedDateFormatted = new Date(date).toISOString().split('T')[0];
+          const targetDate = new Date(date + 'T12:00:00.000Z'); // Use noon UTC to avoid timezone edge cases
           prospects = prospects.filter(p => {
             if (!p.lastContacted) return false;
-            const contactedDateFormatted = new Date(p.lastContacted).toISOString().split('T')[0];
-            return contactedDateFormatted === selectedDateFormatted && (p.status === 'contacted' || p.status === 'added_to_crm');
+
+            // Parse lastContacted and get date in UTC
+            const lastContactedDate = new Date(p.lastContacted);
+            const lastContactedUTC = new Date(lastContactedDate.getTime() - (lastContactedDate.getTimezoneOffset() * 60000));
+
+            // Compare year, month, day in UTC
+            const matches = (p.status === 'contacted' || p.status === 'added_to_crm') &&
+                           lastContactedUTC.getUTCFullYear() === targetDate.getUTCFullYear() &&
+                           lastContactedUTC.getUTCMonth() === targetDate.getUTCMonth() &&
+                           lastContactedUTC.getUTCDate() === targetDate.getUTCDate();
+
+            return matches;
           });
         } else {
           // History tab: show prospects from dates before the selected date
@@ -690,7 +700,8 @@ export class ProspectionService {
       };
 
       // Set status to 'contacted' if this is the first contact attempt
-      if (!prospect.lastContacted && prospect.status === 'pending') {
+      // Only set status to 'contacted' for actual contact attempts, not just logging
+      if (!prospect.lastContacted && prospect.status === 'pending' && callLog.outcome && callLog.outcome !== 'no_answer' && callLog.outcome !== 'busy') {
         updates.status = 'contacted';
       }
 
