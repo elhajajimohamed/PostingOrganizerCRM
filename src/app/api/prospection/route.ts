@@ -75,8 +75,11 @@ export async function GET(request: NextRequest) {
         if (date) {
           const targetDate = new Date(date + 'T12:00:00.000Z'); // Use noon UTC to avoid timezone edge cases
           console.log('🔍 [CONTACTED] Filtering for date:', date, 'target date UTC:', targetDate.toISOString());
+          console.log('🔍 [CONTACTED] Total prospects before filtering:', prospects.length);
 
           const beforeFilter = prospects.length;
+          let matchedCount = 0;
+
           prospects = prospects.filter(prospect => {
             if (!prospect.lastContacted) return false;
 
@@ -91,20 +94,23 @@ export async function GET(request: NextRequest) {
                            lastContactedUTC.getUTCDate() === targetDate.getUTCDate();
 
             if (matches) {
-              console.log('✅ [CONTACTED] Matched prospect:', {
+              matchedCount++;
+              console.log(`✅ [CONTACTED] #${matchedCount} Matched prospect:`, {
                 id: prospect.id,
                 name: prospect.name,
                 status: prospect.status,
                 lastContacted: prospect.lastContacted,
                 lastContactedLocal: lastContactedDate.toString(),
-                lastContactedUTC: lastContactedUTC.toISOString()
+                lastContactedUTC: lastContactedUTC.toISOString(),
+                targetDate: targetDate.toISOString()
               });
             }
 
             return matches;
           });
 
-          console.log('🔍 [CONTACTED] Filtered from', beforeFilter, 'to', prospects.length, 'prospects for date:', date);
+          console.log(`🔍 [CONTACTED] FINAL RESULT: Filtered from ${beforeFilter} to ${prospects.length} prospects for date: ${date}`);
+          console.log(`🔍 [CONTACTED] Matched ${matchedCount} prospects with status 'contacted' or 'added_to_crm'`);
         } else {
           prospects = prospects.filter(prospect => prospect.status === 'contacted' && prospect.lastContacted);
           console.log('🔍 [CONTACTED] Filtered for all contacted prospects (no date filter):', prospects.length);
