@@ -51,3 +51,5 @@ temp/
 
 # Firebase service account keys
 data keeping/firebase-export/*.json
+firebase-key.json
+.env.vercel
